@@ -50,6 +50,7 @@ struct simBranchRet_t {
 };
 
 
+INIT_MODEL(progStateDelayed_t, NUM_BBLOCKS)
 
 /**
  * This function simulates the side-branches and returns 
@@ -74,10 +75,8 @@ BBLOCK_HELPER(clads2GoesUndetectedDelayed, {
     }
     
     if (factor < 1e-5) {
-      // lambda is very small, so nothing will happen to the lineage in terms of speciation
-      // it will hit present and then we see
-      bool undetected = !SAMPLE(bernoulli, rho);  
-      return undetected;
+     
+      return false;
     }
     // end extreme values patch 1
     
@@ -189,8 +188,6 @@ BBLOCK_HELPER(simBranchDelayed, {
 
 
  
-
-INIT_MODEL(progStateDelayed_t, NUM_BBLOCKS)
 
 
 
@@ -365,113 +362,20 @@ BBLOCK(sampleFinalLambda, {
     PC++;
 })
  
-// Write particle data to file
+
 CALLBACK(saveResults, {
-    // std::default_random_engine generator;
-    // int M = MIN(1000, N);
+    printf("lambda0_k, lambda_0.theta, mu_0.k, mu_0.theta, alphaSigma.a, alphaSigma.b, alphaSigma.m0, alphaSigma.v\n");
+
+    floating_t maxWeight = WEIGHTS[0];
+    for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
+
+    /* Use the weights to choose the subsample in a numerically stable way. */
+    floating_t probs[N]; 
+    for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
     
-    // std::string fileName = "results/EXP-" + analysisName + ".csv";
-    // std::ofstream resultFile (fileName, std::ios_base::app);
-    // //resultFile << "lambda0 mu0 alpha log-alpha sigma2 epsilon log-weight\n";
-    // // lambda0 mu0 epsilon alpha sigma 
-    // if(resultFile.is_open()) {
-      
-    //   for(int i = 0; i < M; i++)
-    //           resultFile << 
-    // 		PSTATES[i].lambda0 << ", " <<
-    // 		PSTATES[i].mu0 << ", " <<
-    // 		PSTATES[i].epsilon << ", " <<
-    // 		PSTATES[i].alpha << ", " <<
-    // 		PSTATES[i].sigma << ", " <<
-    // 		WEIGHTS[i] << "\n";
-
-    //       resultFile.close();
-    //   } else {
-    //       printf("Could not open file %s\n", fileName.c_str());
-    //   }
-
-    //   std::string fileName2 = "results/EXP-" + analysisName + "-factors.csv";
-    //   std::ofstream resultFile2 (fileName2, std::ios_base::app);
-    //   if(resultFile2.is_open()) {
-
-    // 	for(int i = 0; i < M; i++) {
-    // 	  for (int j = 0; j < (tree->NUM_NODES); j++) {
-    // 	    resultFile2 << PSTATES[i].factorArr[j] << ", ";
-    // 	  }
-    // 	  resultFile2 << WEIGHTS[i] << "\n";
-    // 	}
-	
-    // 	resultFile2.close();
-    //   } else {
-    // 	printf("Could not open file %s\n", fileName2.c_str());
-    //   }
-
-    //   std::string fileName3 = "results/EXP-" + analysisName + "-end-factors.csv";
-    //   std::ofstream resultFile3 (fileName3, std::ios_base::app);
-    //   if(resultFile3.is_open()) {
-
-    // 	for(int i = 0; i < M; i++) {
-    // 	  for (int j = 0; j < (tree->NUM_NODES); j++) {
-    // 	    resultFile3 << PSTATES[i].factorEndArr[j] << ", ";
-    // 	  }
-    // 	  resultFile3 << WEIGHTS[i] << "\n";
-    // 	}
-	
-    // 	resultFile3.close();
-    //   } else {
-    // 	printf("Could not open file %s\n", fileName3.c_str());
-    //   }
-
-    //   // new lambdas at beginning of branches
-    //   std::string fileName4 = "results/EXP-" + analysisName + "-new-lambdas.csv";
-    //   std::ofstream resultFile4 (fileName4, std::ios_base::app);
-    //   if(resultFile4.is_open()) {
-	
-    // 	for(int i = 0; i < M; i++) {
-    // 	  resultFile4 << PSTATES[i].lambda0 << ", ";
-    // 	  for (int j = 1; j < (tree->NUM_NODES); j++) {
-
-    //   floating_t k = PSTATES[i].lambda_0.k;
-    //   floating_t theta = PSTATES[i].lambda_0.theta*PSTATES[i].factorArr[j];
-    //   // Uses (alpha, beta) instead of (k, theta), alpha=k, beta=1/theta
-    //   std::gamma_distribution<double> gammaDist(k, 1.0 / theta); 
-
-    //   resultFile4 << gammaDist(generator) <<  ", ";
-    // 	    // resultFile4 << SAMPLE(gamma, PSTATES[i].lambda_0.k, PSTATES[i].lambda_0.theta*PSTATES[i].factorArr[j]) <<  ", ";
-    // 	  }
-    // 	  resultFile4 << WEIGHTS[i] << "\n";
-    // 	}
-	
-    // 	resultFile4.close();
-    //   } else {
-    // 	printf("Could not open file %s\n", fileName4.c_str());
-    //   }
-
-
-    //   // new lambdas at the end of branches
-    //   std::string fileName5 = "results/EXP-" + analysisName + "-new-lambdas-end.csv";
-    //   std::ofstream resultFile5 (fileName5, std::ios_base::app);
-    //   if(resultFile5.is_open()) {
-	
-    // 	for(int i = 0; i < M; i++) {
-    // 	  for (int j = 0; j < (tree->NUM_NODES); j++) {
-      
-    //   floating_t k = PSTATES[i].lambda_0.k;
-    //   floating_t theta = PSTATES[i].lambda_0.theta*PSTATES[i].factorEndArr[j];
-    //   // Uses (alpha, beta) instead of (k, theta), alpha=k, beta=1/theta
-    //   std::gamma_distribution<double> gammaDist(k, 1.0 / theta); 
-
-    //   resultFile5 << gammaDist(generator) <<  ", ";
-    // 	    // resultFile5 << SAMPLE(gamma, PSTATES[i].lambda_0.k, PSTATES[i].lambda_0.theta*PSTATES[i].factorEndArr[j]) <<  ", ";
-    // 	  }
-    // 	  resultFile5 << WEIGHTS[i] << "\n";
-    // 	}
-	
-    // 	resultFile5.close();
-    //   } else {
-    // 	printf("Could not open file %s\n", fileName4.c_str());
-    //   }
-
-
+    for (int j = 0; j < M; j++) {
+      int k = SAMPLE(discrete, probs, N);
+      printf("%f, %f, %f, %f, %f, %f, %f, %f\n", PSTATES[k].lambda_0.k, PSTATES[k].lambda_0.theta, PSTATES[k].mu_0.k, PSTATES[k].mu_0.theta, PSTATES[k].alphaSigma.a, PSTATES[k].alphaSigma.b, PSTATES[k].alphaSigma.m0, PSTATES[k].alphaSigma.v);
+    }
   })
 
