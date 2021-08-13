@@ -7,18 +7,20 @@
 #include <random>
 
 #include "inference/smc/smc.cuh"
-#include "tree-utils/tree_utils.cuh"
+#include "trees/tree_utils.cuh"
+#include "trees/cetaceans.cuh"
 #include "utils/math.cuh"
 #include "utils/stack.cuh"
 #include "dists/delayed.cuh"
  
 /** Tree selection */
-typedef Lari_tree_t tree_t;
-const floating_t rhoConst = 0.8410596026490066;
+typedef cetaceans_87_tree_t tree_t;
+const floating_t rhoConst = 1.00;
+//const floating_t rhoConst = 0.8410596026490066;
 //typedef bisse32_tree_t tree_t;
 //const floating_t rho = 1.0;
 
-const int M = 10;
+const int M = 20;
 
 /** Global parameters*/
 const floating_t k = 1;
@@ -33,11 +35,11 @@ const floating_t v = 1;
 const floating_t a = 1.0;
 const floating_t b = 0.2;
 
-std::string analysisName = "ClaDSPlus_Test";
+std::string analysisName = "ClaDS2Plus_delayed_test";
 
-#define NUM_BBLOCKS 4
+#define NUM_BBLOCKS 5
 
-#include "models/ClaDSPlus_delayed.cuh"
+#include "models/ClaDS2Plus_delayed.cuh"
 
 MAIN({
 
@@ -45,9 +47,9 @@ MAIN({
     ADD_BBLOCK(simTree);
     ADD_BBLOCK(conditionOnDetection);
     ADD_BBLOCK(justResample);
-    //ADD_BBLOCK(sampleFinalLambda);
-    //SMC(saveResults);
-    SMC(NULL)
+    ADD_BBLOCK(sampleFinalLambda);
+    SMC(saveResults);
+    //SMC(NULL)
 })
  
 

@@ -7,7 +7,7 @@
 #define MAX_FACTOR 1e5
 #define MIN_FACTOR 1e-5
 #define SINGULARITY_PROTECTION false
-#define RARE_SHIFT true
+#define RARE_SHIFT false
 
 BBLOCK_DATA(tree, tree_t, 1)
 BBLOCK_DATA_CONST(rho, floating_t, rhoConst)
@@ -19,6 +19,8 @@ struct progState_t {
   // TODO
   // Technically we don't need a factor for the root (it is assumed to be 1)
   // But for now we are going to waste one posistion for easier debugging.
+
+  int nshifts;
 
   // Distributions, use underscores to denote distributions
   gamma_t lambda_0;
@@ -92,13 +94,18 @@ BBLOCK_HELPER(ClaDSPlus_goesUndetected, {
 	floating_t tf = f1;
 	f1 = f2;
 	f2 = tf;
-      }
+      }  // invariant: f1 is always smaller or equal than f2
+      assert(f1 <= f2);
     }
 
     // "+" rarely, we will reset factor
     if (RARE_SHIFT) {
+     
       int rareEvent = SAMPLE(betaBernoulli, ab);
-      if (rareEvent) factor = 1.0;
+      if (rareEvent) {
+       factor = 1.0;
+       //printf("+");
+       }
     }
     
     bool ret1 = BBLOCK_CALL(ClaDSPlus_goesUndetected, currentTime, lambda_0, mu_0, factor*exp(f1), alpha_sigma, ab);
@@ -115,7 +122,7 @@ BBLOCK_HELPER(ClaDSPlus_goesUndetected, {
 /** 
  * Return type of simBranch
  *   - r0 the accumulated factors along the branch
- *   - r1 unused
+ *   - r1 if there was a big shift on TODO
  *   - r2 the accumulated probability along the branch
  */
 struct simBranchReturn_t {
@@ -176,17 +183,23 @@ BBLOCK_HELPER(simBranchDelayed, {
     floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma);
     floating_t f2 = SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma);
 
-    if (SINGULARITY_PROTECTION) {
-      if (f2 < f1) {
-	floating_t tf = f1;
-	f1 = f2;
-	f2 = tf;
-      }
-    }
+    // For now we don't have singularity protection here, because not obvious it's correct
+    //if (SINGULARITY_PROTECTION) {
+    //  if (f2 < f1) {
+    //	floating_t tf = f1;
+    //	f1 = f2;
+//	f2 = tf;
+  //    }
+    //}
     
     if (RARE_SHIFT) {  
+     
       int rareEvent = SAMPLE(betaBernoulli, ab);
-      if (rareEvent) factor = 1.0;
+      if (rareEvent) {
+        factor = 1.0;
+	PSTATE.nshifts++;
+        // printf("-");
+         }
     }
     
     // we need to check if the side was undetected
@@ -243,6 +256,9 @@ BBLOCK(simTree, {
 		  PSTATE.factors[treeIdx], PSTATE.alpha_sigma, PSTATE.ab);
 
     floating_t factorEnd = ret.r0;
+     
+   
+    
     //PSTATE.factorEndArr[treeIdx] = factorEnd;
     
     bool interiorNode = treeP->idxLeft[treeIdx] != -1 || treeP->idxRight[treeIdx] != -1;
@@ -251,6 +267,15 @@ BBLOCK(simTree, {
     WEIGHT(ret.r2 + lnTerminalProb);
        
     if(interiorNode) {
+      if (RARE_SHIFT) {  
+	
+	int rareEvent = SAMPLE(betaBernoulli, PSTATE.ab);
+	if (rareEvent) {
+	  PSTATE.nshifts++;
+	  factorEnd = 1.0;
+	 
+	}
+      }
       floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
       floating_t f2 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
 
@@ -286,6 +311,7 @@ BBLOCK(simClaDS2, {
     PSTATE.alpha_sigma = alpha_sigma;
     PSTATE.ab = ab;
     //PSTATE.epsilon = epsilon;
+    PSTATE.nshifts = 0;
  
     // Correction Factor
     int numLeaves = countLeaves(treeP->idxLeft, treeP->idxRight, treeP->NUM_NODES);
@@ -355,7 +381,7 @@ BBLOCK(sampleFinalLambda, {
 
 
 CALLBACK(saveResults, {
-    printf("lambda0_k, lambda_0.theta, mu_0.k, mu_0.theta, alphaSigma.a, alphaSigma.b, alphaSigma.m0, alphaSigma.v\n");
+    printf("lambda0_k, lambda_0.theta, mu_0.k, mu_0.theta, alphaSigma.a, alphaSigma.b, alphaSigma.m0, alphaSigma.v, nshifts\n");
 
     floating_t maxWeight = WEIGHTS[0];
     for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
@@ -366,7 +392,7 @@ CALLBACK(saveResults, {
     
     for (int j = 0; j < M; j++) {
       int k = SAMPLE(discrete, probs, N);
-      printf("%f, %f, %f, %f, %f, %f, %f, %f\n", PSTATES[k].lambda_0.k, PSTATES[k].lambda_0.theta, PSTATES[k].mu_0.k, PSTATES[k].mu_0.theta, PSTATES[k].alpha_sigma.a, PSTATES[k].alpha_sigma.b, PSTATES[k].alpha_sigma.m0, PSTATES[k].alpha_sigma.v);
+      printf("%f, %f, %f, %f, %f, %f, %f, %f, %d\n", PSTATES[k].lambda_0.k, PSTATES[k].lambda_0.theta, PSTATES[k].mu_0.k, PSTATES[k].mu_0.theta, PSTATES[k].alpha_sigma.a, PSTATES[k].alpha_sigma.b, PSTATES[k].alpha_sigma.m0, PSTATES[k].alpha_sigma.v, PSTATES[k].nshifts);
     }
   })
 
