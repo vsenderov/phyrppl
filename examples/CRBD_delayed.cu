@@ -12,31 +12,28 @@
 #include <math.h>
 
 #include "inference/smc/smc.cuh"
-#include "../tree-utils/tree_utils.cuh"
+#include "../trees/tree_utils.cuh"
+#include "../trees/default_trees.cuh"
+#include "../trees/cetaceans.cuh"
 #include "utils/math.cuh"
 
- typedef bisse32_tree_t tree_t;
-// typedef primate_tree_t tree_t;
-// typedef moth_div_tree_t tree_t;
-//typedef Accipitridae_tree_t tree_t;
+//typedef bisse32_tree_t tree_t;
+typedef cetaceans_87_tree_t tree_t;
+const floating_t rhoConst = 1.0;
  
 const floating_t kMu = 1;
 const floating_t thetaMu = 0.5;
 const floating_t kLambda = 1;
 const floating_t thetaLambda = 1.0;
 
-const floating_t rhoConst = 1.0;
-//floating_t rhoConst      = 0.7142857142857143;
-
-
-#include "../crbd/crbd_delayed.cuh"
+#include "../models/CRBD_delayed.cuh"
 
 MAIN(    
     ADD_BBLOCK(simCRBD)
     ADD_BBLOCK(simTree)
     //ADD_BBLOCK(survivorshipBias) needs to be implemented
-    ADD_BBLOCK(sampleFinalLambda)
-    
-    SMC(saveResults)
+    //ADD_BBLOCK(sampleFinalLambda)
+    //SMC(saveResults)
+    SMC(NULL)
 )
   

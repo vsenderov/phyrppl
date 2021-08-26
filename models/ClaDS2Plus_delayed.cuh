@@ -103,7 +103,8 @@ BBLOCK_HELPER(ClaDSPlus_goesUndetected, {
      
       int rareEvent = SAMPLE(betaBernoulli, ab);
       if (rareEvent) {
-       factor = 1.0;
+	//factor = 1.0;
+	factor = SAMPLE(uniform, 0.0, 1.0);
        //printf("+");
        }
     }
@@ -196,7 +197,8 @@ BBLOCK_HELPER(simBranchDelayed, {
      
       int rareEvent = SAMPLE(betaBernoulli, ab);
       if (rareEvent) {
-        factor = 1.0;
+	//        factor = 1.0;
+	factor = SAMPLE(uniform, 0.0, 1.0);
 	PSTATE.nshifts++;
         // printf("-");
          }
@@ -265,6 +267,7 @@ BBLOCK(simTree, {
     floating_t lnTerminalProb =
       interiorNode ? score_GammaExponential(0, PSTATE.lambda_0, factorEnd) : log(rho);
     WEIGHT(ret.r2 + lnTerminalProb);
+   
        
     if(interiorNode) {
       if (RARE_SHIFT) {  
@@ -272,7 +275,8 @@ BBLOCK(simTree, {
 	int rareEvent = SAMPLE(betaBernoulli, PSTATE.ab);
 	if (rareEvent) {
 	  PSTATE.nshifts++;
-	  factorEnd = 1.0;
+	  //	  factorEnd = 1.0;
+	  factorEnd = SAMPLE(uniform, 0.0, 1.0);
 	 
 	}
       }
