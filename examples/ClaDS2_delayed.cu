@@ -35,18 +35,12 @@ const floating_t b = 0.2;
 
 std::string analysisName = "ClaDS2_delayed";
 
-#define NUM_BBLOCKS 3
 
 #include "models/ClaDS2_delayed.cuh"
 
 MAIN({
-
-    ADD_BBLOCK(simClaDS2);
-    ADD_BBLOCK(simTree);
-    //ADD_BBLOCK(conditionOnDetection);
-    ADD_BBLOCK(justResample);
-    //ADD_BBLOCK(sampleFinalLambda);
-    //SMC(saveResults);
-    SMC(NULL)
+    FIRST_BBLOCK(simClaDS2);
+    SMC(saveResults);
+    //SMC(NULL)
 })
  

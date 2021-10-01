@@ -50,7 +50,7 @@ struct simBranchRet_t {
 };
 
 
-INIT_MODEL(progStateDelayed_t, NUM_BBLOCKS)
+INIT_MODEL(progStateDelayed_t)
 
 /**
  * This function simulates the side-branches and returns 
@@ -188,6 +188,16 @@ BBLOCK_HELPER(simBranchDelayed, {
 
 
  
+BBLOCK(sampleFinalLambda, {
+    PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
+    PSTATE.mu0 = SAMPLE(gamma, PSTATE.mu_0.k, PSTATE.mu_0.theta);
+    PSTATE.epsilon = PSTATE.mu0/PSTATE.lambda0;
+    
+    floating_t sigmaSquared = 1.0 / SAMPLE(gamma, PSTATE.alphaSigma.a, 1.0 / PSTATE.alphaSigma.b);
+    PSTATE.sigma = sigmaSquared;
+    PSTATE.alpha = SAMPLE(normal, PSTATE.alphaSigma.m0, 1/PSTATE.alphaSigma.v * PSTATE.sigma);
+    NEXT = NULL;
+})
 
 
 
@@ -200,33 +210,16 @@ BBLOCK(simTree, {
     
     // Terminate if tree is fully traversed
     if(treeIdx == -1) {
-      PC++;
-      BBLOCK_CALL(DATA_POINTER(bblocksArr)[PC], NULL);
+      NEXT = sampleFinalLambda;
+      BBLOCK_CALL(NEXT, NULL);
       return;
     }
     
     PSTATE.treeIdx = treeP->idxNext[treeIdx];
-
-   
     
     int indexParent = treeP->idxParent[treeIdx];
-
-    
-    
-    //floating_t factor = PSTATE.stack.pop();
-
-     floating_t factor = PSTATE.factorArr[treeIdx];
-     //std::cout << "Simulating from: " << indexParent << "to" << treeIdx << ", ";
-     // std::cout << "Reading factor[" << treeIdx << "] = " << PSTATE.factorArr[treeIdx]<< "\n";
-     // std::cout << "popped: " << factor << "\n";
- 
-     // if (std::abs(factor - PSTATE.factorArr[treeIdx]) > 0.1) {
-     //   std::cout << "ERROR CONDITION!";
-          
-     // }
-     
-     
-    
+    floating_t factor = PSTATE.factorArr[treeIdx];
+        
     simBranchRet_t ret = BBLOCK_CALL(simBranchDelayed, treeP->ages[indexParent], treeP->ages[treeIdx],  PSTATE.lambda_0, PSTATE.mu_0, factor, PSTATE.alphaSigma, PSTATE.rho);
 
     floating_t factorEnd = ret.r0;
@@ -245,14 +238,8 @@ BBLOCK(simTree, {
       floating_t leftf = factorEnd*exp(f1);
       floating_t rightf = factorEnd*exp(f2);
       
-      //      PSTATE.stack.push(rightf);
-      //PSTATE.stack.push(leftf);
-      //std::cout << "Creating factor[" << (treeP->idxLeft[treeIdx]  ) << "] =" << leftf <<"\n";
-      //std::cout << "and factor[" << (treeP->idxRight[treeIdx] ) << "]=" << rightf << "\n";
       PSTATE.factorArr[treeP->idxLeft[treeIdx]] = leftf;
       PSTATE.factorArr[treeP->idxRight[treeIdx]] = rightf;
-//      PSTATE.factorArr[treeIdx - 1] = rightf;
-//      PSTATE.factorArr[treeP->idxNext[treeIdx] - 1] = leftf;
     }
     
 })
@@ -263,8 +250,7 @@ BBLOCK(simClaDS2, {
 
     // Make sure this is the correct starting point
     PSTATE.treeIdx = treeP->idxLeft[ROOT_IDX];
-    //std::cout << "At ROOT " << PSTATE.treeIdx << "\n";
-
+   
 
    // floating_t lambda_0 = SAMPLE(gamma, k, theta);
     gamma_t lambda_0(k, theta);
@@ -273,9 +259,8 @@ BBLOCK(simClaDS2, {
     //floating_t sigmaSquared = 1.0 / SAMPLE(gamma, 1.0, 1.0 / 0.2);
     //floating_t sigma = sqrt(sigmaSquared);
     //floating_t alpha = exp(SAMPLE(normal, 0.0, sigma));
-    
-// * σ^2 | a,b ~ InverseGamma(a, b)
-// * m ~ N(m0, v σ^2)
+    // * σ^2 | a,b ~ InverseGamma(a, b)
+    // * m ~ N(m0, v σ^2)
     normalInverseGamma_t alphaSigma(m0, v, a, b);
     
     floating_t epsilon = SAMPLE(uniform, 0.0, 1.0);
@@ -300,19 +285,12 @@ BBLOCK(simClaDS2, {
     floating_t rightf = factor*exp(f2);
 
 
-    // bblockArgs_t args(lambda1, lambda2);
-    // one for each child, and one for Survivorship Bias after tree simulations
-    //    PSTATE.stack.push(rightf);
-    //PSTATE.stack.push(leftf);
-    //PSTATE.stack.push(factor);
-    //std::cout << "Creating factor[" << (PSTATE.treeIdx) << "] =" << leftf << "\n";
-    //std::cout << "and factor[" << (treeP->idxRight[ROOT_IDX] ) << "] = " << rightf << "\n";
+   
     PSTATE.factorArr[PSTATE.treeIdx] = leftf;
     PSTATE.factorArr[treeP->idxRight[ROOT_IDX]] = rightf;
 
-    PC++;
-    BBLOCK_CALL(simTree);
-
+    NEXT = simTree;
+    BBLOCK_CALL(NEXT, NULL);
 
     // Condition on detection (clads2GoesUndetected simulations)
     // Nested inference with "forward" method here, just simulation with WEIGHT( -2.0 * log(number of false))?
@@ -341,26 +319,28 @@ BBLOCK(conditionOnDetection, {
     //printf("condition weihght: %f", -2.0 * log(numDetected / static_cast<floating_t>(numSamples)) );
     WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
 
-    PC++;
-
-})
-
-BBLOCK(justResample, {
-    //std::cout << "Resampling...\r\r\r\r\r\r\r\r\r\r\r\r";
-    PC++;
+    NEXT = sampleFinalLambda;
 })
 
 
-BBLOCK(sampleFinalLambda, {
-    PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
-    PSTATE.mu0 = SAMPLE(gamma, PSTATE.mu_0.k, PSTATE.mu_0.theta);
-    PSTATE.epsilon = PSTATE.mu0/PSTATE.lambda0;
-    
-    floating_t sigmaSquared = 1.0 / SAMPLE(gamma, PSTATE.alphaSigma.a, 1.0 / PSTATE.alphaSigma.b);
-    PSTATE.sigma = sigmaSquared;
-    PSTATE.alpha = SAMPLE(normal, PSTATE.alphaSigma.m0, 1/PSTATE.alphaSigma.v * PSTATE.sigma);
-    PC++;
-})
+
+
+int adiscrete(const floating_t* ps, const int n) {
+  //floating_t u = SAMPLE(uniform, 0, 1);    // replace this with c++ std library uniform
+  //std::default_random_engine generator;
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::uniform_real_distribution<double> distribution(0.0,1.0);
+  floating_t u = distribution(generator);
+  floating_t sum = 0;    
+  int idx = 0;    
+  for(idx = 0; idx < n-1; idx++) {        
+    sum += ps[idx];        
+    if(u <= sum)            
+      break;    
+  }    
+  return idx;
+}
  
 
 CALLBACK(saveResults, {
@@ -374,7 +354,8 @@ CALLBACK(saveResults, {
     for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
     
     for (int j = 0; j < M; j++) {
-      int k = SAMPLE(discrete, probs, N);
+      //int k = SAMPLE(discrete, probs, N); doesn't work on GPU
+      int k = adiscrete(probs, N);
       printf("%f, %f, %f, %f, %f, %f, %f, %f\n", PSTATES[k].lambda_0.k, PSTATES[k].lambda_0.theta, PSTATES[k].mu_0.k, PSTATES[k].mu_0.theta, PSTATES[k].alphaSigma.a, PSTATES[k].alphaSigma.b, PSTATES[k].alphaSigma.m0, PSTATES[k].alphaSigma.v);
     }
   })
