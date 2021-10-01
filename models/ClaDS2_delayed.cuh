@@ -200,6 +200,30 @@ BBLOCK(sampleFinalLambda, {
 })
 
 
+// Should be equivalent to forward sampling
+BBLOCK(conditionOnDetection, {
+
+    tree_t* treeP = DATA_POINTER(tree);
+    floating_t treeAge = treeP->ages[ROOT_IDX];
+    //floating_t factor = PSTATE.stack.pop();
+    floating_t factor = 1.0;
+
+    
+    floating_t epsilon = PSTATE.epsilon;
+    floating_t rho = PSTATE.rho;
+
+    int numSamples = 100;
+    int numDetected = 0;
+    for(int i = 0; i < numSamples; i++) {
+      bool undetected = BBLOCK_CALL(clads2GoesUndetectedDelayed, treeAge, PSTATE.lambda_0, PSTATE.mu_0, factor, PSTATE.alphaSigma, rho);
+        if(! undetected)
+            numDetected++;
+    }
+    //printf("condition weihght: %f", -2.0 * log(numDetected / static_cast<floating_t>(numSamples)) );
+    WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
+
+    NEXT = sampleFinalLambda;
+})
 
 // Not called on root as in WebPPL, instead root is handled in simClaDS2 bblock
 BBLOCK(simTree, {
@@ -210,7 +234,7 @@ BBLOCK(simTree, {
     
     // Terminate if tree is fully traversed
     if(treeIdx == -1) {
-      NEXT = sampleFinalLambda;
+      NEXT = conditionOnDetection;
       BBLOCK_CALL(NEXT, NULL);
       return;
     }
@@ -297,30 +321,7 @@ BBLOCK(simClaDS2, {
 })
 
 
-// Should be equivalent to forward sampling
-BBLOCK(conditionOnDetection, {
 
-    tree_t* treeP = DATA_POINTER(tree);
-    floating_t treeAge = treeP->ages[ROOT_IDX];
-    //floating_t factor = PSTATE.stack.pop();
-    floating_t factor = 1.0;
-
-    
-    floating_t epsilon = PSTATE.epsilon;
-    floating_t rho = PSTATE.rho;
-
-    int numSamples = 100;
-    int numDetected = 0;
-    for(int i = 0; i < numSamples; i++) {
-      bool undetected = BBLOCK_CALL(clads2GoesUndetectedDelayed, treeAge, PSTATE.lambda_0, PSTATE.mu_0, factor, PSTATE.alphaSigma, rho);
-        if(! undetected)
-            numDetected++;
-    }
-    //printf("condition weihght: %f", -2.0 * log(numDetected / static_cast<floating_t>(numSamples)) );
-    WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
-
-    NEXT = sampleFinalLambda;
-})
 
 
 
