@@ -45,9 +45,7 @@ struct ret_delayed_t_bothways {
 };
  
  
- 
-#define NUM_BBLOCKS 3
-INIT_MODEL(progState_t, NUM_BBLOCKS)
+INIT_MODEL(progState_t)
 
 
 BBLOCK_HELPER_DECLARE(crbdGoesUndetectedDelayed, ret_delayed_t_bothways, floating_t, floating_t, floating_t, floating_t, floating_t, floating_t);
@@ -194,15 +192,14 @@ BBLOCK(simTree, {
     PSTATE.treeIdx = nextIdx;
 
     if(nextIdx == -1)
-        PC++;
+      //NEXT = survivorshipBias;
+      NEXT = NULL;
 })
  
   
 BBLOCK(simCRBD, {
-
     PSTATE.kMu = kMu;
     PSTATE.thetaMu = thetaMu;
-    
     PSTATE.kLambda = kLambda;
     PSTATE.thetaLambda = thetaLambda;
 
@@ -214,8 +211,8 @@ BBLOCK(simCRBD, {
     floating_t corrFactor = (numLeaves - 1) * log(2.0) - lnFactorial(numLeaves);
     WEIGHT(corrFactor);
 
-    PC++;
-    BBLOCK_CALL(DATA_POINTER(bblocksArr)[PC], NULL);
+    NEXT = simTree;
+    BBLOCK_CALL(NEXT, NULL); // skips resampling
 })
 
 /*
@@ -232,7 +229,7 @@ BBLOCK(survivorshipBias, {
 BBLOCK(sampleFinalLambda, {
     PSTATE.lambda = SAMPLE(gamma, PSTATE.kLambda, PSTATE.thetaLambda);
     PSTATE.mu = SAMPLE(gamma, PSTATE.kMu, PSTATE.thetaMu);
-    PC++;
+    NEXT = NULL;
 })
 
 // Write particle data to file. 

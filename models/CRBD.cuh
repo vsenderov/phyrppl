@@ -8,8 +8,8 @@ struct progState_t {
     treeIdx_t treeIdx;
 };
 
-#define NUM_BBLOCKS 3
-INIT_MODEL(progState_t, NUM_BBLOCKS)
+
+INIT_MODEL(progState_t)
 BBLOCK_HELPER_DECLARE(crbdGoesUndetected, bool, floating_t, floating_t, floating_t, floating_t);
 BBLOCK_DATA(tree, tree_t, 1)
 BBLOCK_DATA_CONST(rho, floating_t, rhoConst)
@@ -91,14 +91,18 @@ BBLOCK(simTree, {
     int nextIdx = treeP->idxNext[treeIdx];
     PSTATE.treeIdx = nextIdx;
 
-    if(nextIdx == -1)
-        PC++;
+    if(nextIdx == -1) {
+      //   NEXT = survivorshipBias;
+      NEXT = NULL;
+    }
+      
 })
 
 
 BBLOCK(simCRBD, {
     PSTATE.lambda = SAMPLE(gamma, k, theta);
-    PSTATE.mu =  SAMPLE(gamma, kMu, thetaMu);
+    floating_t epsilon = SAMPLE(uniform, 0.0, 1.0);
+    PSTATE.mu =  SAMPLE(gamma, kMu, thetaMu*epsilon);
 
     tree_t* treeP = DATA_POINTER(tree);
 
@@ -108,18 +112,17 @@ BBLOCK(simCRBD, {
     floating_t corrFactor = (numLeaves - 1) * log(2.0) - lnFactorial(numLeaves);
     WEIGHT(corrFactor);
 
-    PC++;
-    BBLOCK_CALL(DATA_POINTER(bblocksArr)[PC], NULL);
+    NEXT = simTree;
+    BBLOCK_CALL(NEXT, NULL);
 })
 
 
 BBLOCK(survivorshipBias, {
     floating_t age = DATA_POINTER(tree)->ages[ROOT_IDX];
     int MAX_M = 10000;
-    // int M = BBLOCK_CALL(M_crbdGoesUndetected, age, MAX_M, PSTATE.lambda, PSTATE.mu, DATA_CONST(rho));
-    int M = BBLOCK_CALL(M_crbdGoesUndetected, age, MAX_M, PSTATE.lambda, PSTATE.mu, rho);
+    int M = BBLOCK_CALL(M_crbdGoesUndetected, age, MAX_M, PSTATE.lambda, PSTATE.mu, DATA_CONST(rho));
     WEIGHT(LOG(M));
-    PC++;
+    NEXT = NULL;
 })
 
 
