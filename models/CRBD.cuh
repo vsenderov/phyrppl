@@ -100,9 +100,8 @@ BBLOCK(simTree, {
 
 
 BBLOCK(simCRBD, {
-    PSTATE.lambda = SAMPLE(gamma, k, theta);
-    floating_t epsilon = SAMPLE(uniform, 0.0, 1.0);
-    PSTATE.mu =  SAMPLE(gamma, kMu, thetaMu*epsilon);
+    PSTATE.lambda = SAMPLE(gamma, k, theta);    
+    PSTATE.mu =  SAMPLE(gamma, kMu, thetaMu);
 
     tree_t* treeP = DATA_POINTER(tree);
 
