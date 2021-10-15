@@ -12,11 +12,12 @@
 #include "utils/stack.cuh"
 #include "dists/delayed.cuh"
 #include "trees/cetaceans.cuh"
+#include "trees/birds.cuh"
 #include "trees/default_trees.cuh"
 
 #define CLADS false              // Cladogenetic changes
-#define ANADS true               // Anagenetic changes
-#define EXTINCTION 2            // 2 - constant turnover, 1 - const, 0 - no exticntion
+#define ANADS 2             // Anagenetic changes
+#define EXTINCTION 2             // 2 - constant turnover, 1 - const, 0 - no exticntion
 
 #define RARE_SHIFT false          // RARE_DS model TODO
 #define RESAMPLE_RATES false      // TODO resample turnover and anagenesis rate at rate shifts
@@ -30,20 +31,27 @@
 #define DEBUG false
 unsigned int depth;
 
+const std::string analysisName = "CombineDS";
 
 //typedef bisse32_tree_t tree_t;
-typedef cetaceans_87_tree_t tree_t;
-BBLOCK_DATA(tree, tree_t, 1)
-BBLOCK_DATA_CONST(rho, floating_t, 1.0)
+// typedef cetaceans_87_tree_t tree_t;
+// BBLOCK_DATA(tree, tree_t, 1)
+// BBLOCK_DATA_CONST(rho, floating_t, 1.0)
 
-#define NUM_BBLOCKS 4
+
+typedef Anatinae_tree_t tree_t;
+BBLOCK_DATA(tree, tree_t, 1)
+BBLOCK_DATA_CONST(rho, floating_t, 0.8709677419354839)
+
+
 #include "../models/CombineDS.cuh"
 
 BBLOCK(initialization, {
     // Priors
     PSTATE.lambda_0 = gamma_t(1.0, 1.0);
     PSTATE.mu_0 = gamma_t(1.0, 0.5);
-    PSTATE.nu_0 = gamma_t(1.0, 2.0);
+    
+    PSTATE.nu_0 = gamma_t(1.0, 1.0);
     PSTATE.alpha_sigma = normalInverseGamma_t(0, 1.0, 1.0, 0.2);
     PSTATE.alpha_sigma_nu = normalInverseGamma_t(0, 1.0, 1.0, 0.2);
     
@@ -55,15 +63,12 @@ BBLOCK(initialization, {
     // floating_t sigma = sqrt( 1/ SAMPLE(gamma, a, 1/b));
     // floating_t alpha = exp( SAMPLE(normal, m0, sigma));
     
-    PC++;
+    NEXT = simCombineDS;
+    BBLOCK_CALL(NEXT, NULL);
 })
 
 MAIN({
-    ADD_BBLOCK(initialization);
-    ADD_BBLOCK(simCombineDS);
-    ADD_BBLOCK(simTree);
-    //ADD_BBLOCK(conditionOnDetection);
-    //ADD_BBLOCK(sampleFinalLambda);
-    //SMC(saveResults);
-    SMC(NULL)
+    FIRST_BBLOCK(initialization);
+    //SMC(NULL)
+    SMC(saveResultsFile);
 })

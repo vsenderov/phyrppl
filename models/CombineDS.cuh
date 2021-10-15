@@ -27,11 +27,9 @@
  *  Tunable parameters:
  *
  *    #define CLADS false             // Cladogenetic changes
- *    #define ANADS true              // Anagenetic changes
+ *    #define ANADS 2                 // NEW
  *    #define EXTINCTION 2            // 2 - constant turnover, 1 - const, 0 - no exticntion
  *
- *    #define RARE_SHIFT false        // RARE_DS model TODO
- *    #define RESAMPLE_RATES false    // TODO resample turnover and anagenesis rate at rate shifts
  *
  * Not tunable! (unless you know)
  *
@@ -85,7 +83,7 @@ struct progState_t {
   normalInverseGamma_t alpha_sigma;
   normalInverseGamma_t alpha_sigma_nu; // for anads
 
-  // Posterior samples
+  //Posterior samples
   floating_t lambda0;
   floating_t mu0;
   floating_t nu0;
@@ -105,7 +103,7 @@ struct progState_t {
   int numberShifts_AnaDS;  
 };
 
-INIT_MODEL(progState_t, NUM_BBLOCKS)
+INIT_MODEL(progState_t)
 
 
 /*
@@ -121,7 +119,7 @@ INIT_MODEL(progState_t, NUM_BBLOCKS)
  */
 BBLOCK_HELPER(goesUndetected,
 {
-  if (GUARD && (CLADS || ANADS)) {
+  if (GUARD) {
     if (factor > MAX_FACTOR) {
       return false; 
     }
@@ -131,18 +129,28 @@ BBLOCK_HELPER(goesUndetected,
   }
 
   floating_t waitingTime_speciation = SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor);
-  floating_t waitingTime_extinction = INFINITY;
+  floating_t waitingTime_extinction = INFINITY; // case 0
   //floating_t waitingTime_anagenesis = ANADS ? SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor*ypsilon) : INFINITY;
-  floating_t waitingTime_anagenesis = ANADS ? SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor) : INFINITY;
+  // floating_t waitingTime_anagenesis = ANADS ? SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor) : INFINITY;
 
   switch(EXTINCTION) {
   case 1:
-    //waitingTime_extinction = SAMPLE(sample_GammaExponential, PSTATE.lambda_0, epsilon);
     waitingTime_extinction = SAMPLE(sample_GammaExponential, PSTATE.mu_0, 1.0); 
   case 2:
-    //waitingTime_extinction = SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor*epsilon);
     waitingTime_extinction = SAMPLE(sample_GammaExponential, PSTATE.mu_0, factor); 
+  }
+
+
+  floating_t waitingTime_anagenesis =  INFINITY; // case 0
+  switch(ANADS) {
+  case 1:
+    
+    waitingTime_anagenesis =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, 1.0);
+    
+  case 2:
+    waitingTime_anagenesis =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor);
   } 
+  
   
   floating_t t                      = MIN(waitingTime_speciation, waitingTime_extinction);
   
@@ -255,8 +263,19 @@ BBLOCK_HELPER(simBranch,
   floating_t branchLengthTime = startTime - stopTime;  
   floating_t tCladogenetic = SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor);
   //floating_t tAnagenetic = ANADS ? SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor*ypsilon) : INFINITY;
-  floating_t tAnagenetic = ANADS ? SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor) : INFINITY;
+  //floating_t tAnagenetic = ANADS ? SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor) : INFINITY;
 
+
+  floating_t tAnagenetic =  INFINITY; // case 0
+  switch(ANADS) {
+  case 1:
+    tAnagenetic =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, 1.0);
+  case 2:
+    tAnagenetic =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor);
+ 
+  } 
+
+  
   floating_t t = MIN(tAnagenetic, tCladogenetic);
   
   if (tCladogenetic < tAnagenetic) { //Cladogenetic or CRBD case
@@ -355,7 +374,38 @@ BBLOCK_HELPER(simBranch,
 	      floating_t factor);
 
 
+BBLOCK(sampleFinalLambda, {
+    PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
+    PSTATE.mu0 = SAMPLE(gamma, PSTATE.mu_0.k, PSTATE.mu_0.theta);
+    PSTATE.nu0 = SAMPLE(gamma, PSTATE.nu_0.k, PSTATE.nu_0.theta);
+    
+    floating_t sigmaSquared = 1.0 / SAMPLE(gamma, PSTATE.alpha_sigma.a, 1.0 / PSTATE.alpha_sigma.b);
+    PSTATE.sigma = sigmaSquared;
+    PSTATE.alpha = SAMPLE(normal, PSTATE.alpha_sigma.m0, 1/PSTATE.alpha_sigma.v * PSTATE.sigma);
 
+    floating_t sigmaSquared_nu = 1.0 / SAMPLE(gamma, PSTATE.alpha_sigma_nu.a, 1.0 / PSTATE.alpha_sigma_nu.b);
+    PSTATE.sigma_nu = sigmaSquared_nu;
+    PSTATE.alpha_nu = SAMPLE(normal, PSTATE.alpha_sigma_nu.m0, 1/PSTATE.alpha_sigma_nu.v * PSTATE.sigma);
+
+    NEXT = NULL;
+})
+
+// Should be equivalent to forward sampling
+BBLOCK(conditionOnDetection, {
+    tree_t* treeP = DATA_POINTER(tree);
+    floating_t treeAge = treeP->ages[ROOT_IDX];
+
+    int numSamples = 100;
+    int numDetected = 0;
+    for(int i = 0; i < numSamples; i++) {
+      bool undetected = BBLOCK_CALL(goesUndetected, treeAge, 1.0, 1);
+        if(! undetected)
+            numDetected++;
+    }
+    WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
+    NEXT = sampleFinalLambda;
+    BBLOCK_CALL(NEXT, NULL);
+})
 	      
 /*
  * simTree - required
@@ -372,9 +422,9 @@ BBLOCK(simTree,
   
   // Terminate if tree is fully traversed
   if(treeIdx == -1) {
-    PC++;
-    // We don't need the following, can cause a bug if no next BBLOCK
-    // BBLOCK_CALL(DATA_POINTER(bblocksArr)[PC], NULL);
+    //NEXT = NULL;
+    NEXT = conditionOnDetection;
+    BBLOCK_CALL(NEXT, NULL);
     return;
   }
   PSTATE.treeIdx = treeP->idxNext[treeIdx]; // advance
@@ -452,7 +502,63 @@ BBLOCK(simCombineDS,
   PSTATE.factors[PSTATE.treeIdx] = leftFactor; // same as left of root, treeP->idxLeft[ROOT_IDX]
   PSTATE.factors[treeP->idxRight[ROOT_IDX]] = rightFactor;
       
-  PC++;
-  BBLOCK_CALL(simTree);
+  NEXT = simTree;
+  BBLOCK_CALL(NEXT, NULL);
 
  })
+
+
+int adiscrete(const floating_t* ps, const int n) {
+  //floating_t u = SAMPLE(uniform, 0, 1);    // replace this with c++ std library uniform
+  //std::default_random_engine generator;
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::uniform_real_distribution<double> distribution(0.0,1.0);
+  floating_t u = distribution(generator);
+  floating_t sum = 0;    
+  int idx = 0;    
+  for(idx = 0; idx < n-1; idx++) {        
+    sum += ps[idx];        
+    if(u <= sum)            
+      break;    
+  }    
+  return idx;
+}
+ 
+
+CALLBACK(saveResultsFile, {
+    std::string headerFileName = "results/" + analysisName + "_header.csv";
+    std::ofstream headerFile (headerFileName, std::ios_base::app);
+    if (headerFile.is_open()) {
+      //headerFile << "k, p, lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta" << std::endl;
+      headerFile << "lambda0, mu0, nu0, alpha, sigma, alpha_nu, sigma_nu" << std::endl;
+      headerFile.close();
+    }
+
+    std::string resultsFileName = "results/" + analysisName + ".csv";
+    std::ofstream resultsFile (resultsFileName, std::ios_base::app);
+    if (resultsFile.is_open()) {
+      floating_t maxWeight = WEIGHTS[0];
+      for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
+      
+      /* Use the weights to choose the subsample in a numerically stable way. */
+      floating_t probs[N]; 
+      for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
+      
+      for (int j = 0; j < M; j++) {
+	//int k = SAMPLE(discrete, probs, N); doesn't work on GPU
+	int k = adiscrete(probs, N);
+	resultsFile << PSTATES[k].lambda0 << ", "
+		    << PSTATES[k].mu0 << ", "
+		    << PSTATES[k].nu0 << ", "
+	            << PSTATES[k].alpha << ", "
+		    << PSTATES[k].sigma << ", "
+		    << PSTATES[k].alpha_nu << ", "
+		    << PSTATES[k].sigma_nu << std::endl;
+
+      }
+      resultsFile.close();
+    }
+    
+  })
+

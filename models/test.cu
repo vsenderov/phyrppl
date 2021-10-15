@@ -89,142 +89,35 @@
 
 
 
-/* Tunable parameters */
-#define CLADS false              // Cladogenetic changes
-#define CONST_EXTINCTION false   // Constant extinction rate, if it is false CONSTANT_EXTINCTION
-//#define ZERO_EXTINCTION        // TODO 
-
-#define ANADS true               // Anagenetic changes
-#define CONST_ANAGENESIS false  // TODO
-
-#define RARE_SHIFT false          // Activate rare shifts - works both on ClaDS and AnaDS
-#define UNCOUPLE false            // Uncouples turnover rate at rare shifts
-// ?? Do we resample yspislon at rate shifts ??
-
-/* Do not tune unless you know what you're doing! */
-#define GUARD true
-#define MAX_FACTOR 1e5 
-#define MIN_FACTOR 1e-5
-#define M 20              // Number of subsamples to draw
-#define DEBUG false
-#define DEBUG1 false
-#define DEBUG2 false
-unsigned int depth;
-
-/* Tree selection */
-//typedef cetaceans_87_tree_t tree_t;
-typedef bisse32_tree_t tree_t;
-const floating_t rhoConst = 1.0;
-
-/* Priors for diversification parameters λ, μ, ν*/
-const floating_t k = 1.0;
-const floating_t theta = 1.0;
-const floating_t epsilon = 0.5;   // initial extinction rate
-const floating_t ypsilon = 0.5;   // initial anagenesis rate
-
-/* Rare shift frequency */
-const floating_t a_epsilon = 1;
-const floating_t b_epsilon = 100;
-
-/* Concept paper priors */
-const floating_t m0 = 0;
-const floating_t v = 1;
-const floating_t a = 1.0;
-const floating_t b = 0.002;
-
-/* New, small shift priors */
-// const floating_t m0 = 0;
-// const floating_t v = 1;
-// const floating_t a = 1.0;
-//const floating_t b = 0.2;
-
-
 
 /////////////////////////////////////////////////////////////////////////////
 
 
 
-BBLOCK_DATA(tree, tree_t, 1)
-BBLOCK_DATA_CONST(rho, floating_t, rhoConst)
-typedef short treeIdx_t;
-
 /* Program state */
 struct progState_t {
-  floating_t factors[(tree->NUM_NODES)] = {1.0}; // first is 1, all other 0 for now
-  // TODO
-  // Technically we don't need a factor for the root (it is assumed to be 1)
-  // But for now we are going to waste one posistion for easier debugging.
-
-  floating_t turnover_rates[(tree->NUM_NODES)]; // used to multiply the scale of μ
-
-  bool cladsShifts[(tree->NUM_NODES)] = {0}; // initalize with 0 
-  bool anadsShifts[(tree->NUM_NODES)] = {0};
   
-  // Distributions, use underscores to denote distributions
-  gamma_t lambda_0;
-  gamma_t mu_0;
-  gamma_t nu;
-  normalInverseGamma_t alpha_sigma;
-  beta_t ab;
-  
-  // Final Values/ Hyperparameters
-  // TODO do we need all?
-  floating_t lambda0;
-  floating_t mu0;
-  //  floating_t nu; // name clash
-  floating_t alpha;
-  floating_t sigma;
-  floating_t epsilon;  // initial turn-over rate
-  floating_t pEpsilon; // probability of large shift
-  treeIdx_t treeIdx;
-  int nshifts_clads;
-  int nshifts_anads;
 };
 
 
 #define NUM_BBLOCKS 1
 
-INIT_MODEL(progState_t, NUM_BBLOCKS)
+INIT_MODEL(progState_t)
 
 
 /*
  * simCombineDS - required BBLOCK
  */
-BBLOCK(simCombineDS,
+BBLOCK(test,
 {
 
-  // Set up tree traversal
-  tree_t* treeP = DATA_POINTER(tree);
-  PSTATE.treeIdx = treeP->idxLeft[ROOT_IDX];
-  
-  // Draw initial rates, or delayed declare them
-
-  gamma_t lambda_0(k, theta);
-  gamma_t mu_0(k, theta);
-  gamma_t nu(k, theta);
-  beta_t ab(a_epsilon, b_epsilon);
-  normalInverseGamma_t alpha_sigma(m0, v, a, b);
-
-  PSTATE.epsilon = epsilon;  PSTATE.lambda_0 = lambda_0;
-  PSTATE.mu_0 = mu_0;
-  PSTATE.nu = nu;
-  PSTATE.ab = ab;
-  PSTATE.alpha_sigma = alpha_sigma;
-  
-  floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
-
-
-  floating_t a = SAMPLE(
-
-  printf("%f %f\n", f1, exp(f1));
-  // Advance to next BBLOCK
-  PC++;
-   
+  printf("%f", binomialScore(0.5, 5, 10));
+  NEXT = NULL;   
 })
 
 
 
 MAIN({
-    ADD_BBLOCK(simCombineDS);
+    FIRST_BBLOCK(test);
     SMC(NULL)
 })

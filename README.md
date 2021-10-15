@@ -1,6 +1,9 @@
-# PhyRPPL Development Branch
+# PhyRPPL: Phylogenetic library for RootPPL
 
-Working on features:
-	- Clads+
-	- AnaDS
-	- AnaDS+
+## Changelog
+
+### v.0.3.0
+
+- Integrated new RootPPL syntax in CombineDS using NEXT
+- ANADS - const nu
+- conditionOnDetection and posterior sampling to CombineDS
