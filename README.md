@@ -2,6 +2,12 @@
 
 ## Changelog
 
+
+
+### v0.4.0
+
+Introduced templates to handle input.
+
 ### v.0.3.1
 
 Merged CRBD update needed to get same log Z in the CorePPL-TreePPL paper.
