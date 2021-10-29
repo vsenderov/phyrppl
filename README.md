@@ -2,7 +2,11 @@
 
 ## Changelog
 
+### v0.5.0
 
+- Major bug found, which affected AnaDS1 (not being executed).
+- AnaDS-GBM implemented
+- Improvements to tools.
 
 ### v0.4.0
 
