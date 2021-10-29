@@ -110,8 +110,9 @@ INIT_MODEL(progState_t)
  */
 BBLOCK(test,
 {
-
-  printf("%f", binomialScore(0.5, 5, 10));
+  normalInverseGamma_t alpha_sigma = normalInverseGamma_t(0, 1.0, 1.0, 0.2);
+  floating_t f =  SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma);
+  printf("%f\n", f);
   NEXT = NULL;   
 })
 

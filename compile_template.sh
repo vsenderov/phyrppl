@@ -6,7 +6,7 @@
 #
 # E.g.
 #
-#  ./compile_template.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 false 2 1 20000 20
+#  ./compile_template.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 false 2 1 1 10
 #
 
 args=("$@")
@@ -26,8 +26,3 @@ do
 done
 
 rootppl -o $dir.out results/$dir.cu
-\time --format "%E" ./$dir.out  "${args[$(($#-2))]}" "${args[$(($#-1))]}" 2> results/time.txt
-mkdir $dir
-mv log_norm_const.txt $dir/
-mv results/* $dir/
-rm $dir.out
