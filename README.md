@@ -2,6 +2,12 @@
 
 ## Changelog
 
+### v0.5.1
+- improved final sampling
+- some tests that lead to discovery of a bug in NomalInverseGammaNormal sampler
+- posterior plotting in R improved
+- runner script
+
 ### v0.5.0
 
 - Major bug found, which affected AnaDS1 (not being executed).
