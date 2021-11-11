@@ -92,7 +92,7 @@
 
 /////////////////////////////////////////////////////////////////////////////
 
-#define STEPS 2
+#define STEPS 2.0
 
 
 /* Program state */
@@ -111,14 +111,14 @@ INIT_MODEL(progState_t)
  */
 BBLOCK(test,
 {
-  normalInverseGamma_t alpha_sigma = normalInverseGamma_t(0, 1.0, 3.0, 1.0);
-  floating_t f =  SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma);
+  floating_t m0 = 0;
+  floating_t sigma2 = 0.2;
+  floating_t f = SAMPLE(normal, m0, sigma2);
   PSTATE.f = f;
 
   floating_t factorSum = 0;
-  normalInverseGamma_t alpha_sigma_nu = normalInverseGamma_t(0, 2.0, 3.0, 0.5);
   for (int i = 0; i < STEPS; i++) {
-    factorSum += SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma_nu);
+    factorSum += SAMPLE(normal, m0 / STEPS, sigma2/ sqrt(STEPS));
   }
 
   PSTATE.f_1_2 = factorSum;
@@ -142,7 +142,7 @@ CALLBACK(printResults, {
     varF1_2 += pow(meanF1_2 - PSTATES[i].f_1_2, 2.0);
   }
   varF = varF / (N - 1); varF1_2 = varF1_2 / (N - 1);
-  printf("meanF\t\tvarF1\t\tmeanF1_2\t\tvarF1_2\n");
+  printf("meanF\t\tvarF1\t\tmeanF1_2\tvarF1_2\n");
   printf("%f\t%f\t%f\t%f\n", meanF, varF, meanF1_2, varF1_2);
 })
 

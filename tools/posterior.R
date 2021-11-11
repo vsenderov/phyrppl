@@ -31,12 +31,13 @@ birch_data = function(variable_name = "lambda0",
 
 
 # plotting
-plot_posterior = function(variable_name = "lambda0", experiment_dir = "experiments/Anatinae", exp_subset = NA, note="") {
+plot_posterior = function(variable_name = "lambda0", experiment_dir = "experiments/Anatinae", exp_subset = NA, note="",
+                          plotf  = "plot.png", xlim = c(0,4), Q3p = 1.0) {
   experiment_files = list.files(experiment_dir)
   atitle = paste("Plot of",variable_name,experiment_dir, note)
   data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[1]))
 
-  colors <- as.factor(substr(experiment_files, 39, 99))
+  colors <- as.factor(substr(experiment_files, 91, 99))
   p = ggplot()
   #p = ggplot2::ggplot(data, ggplot2::aes_string(x = variable_name)) +
    # ggplot2::geom_density(aes(color = colors[1])) +   ggplot2::scale_color_manual(values = colors)
@@ -45,29 +46,34 @@ plot_posterior = function(variable_name = "lambda0", experiment_dir = "experimen
     exp_subset = 1:length(experiment_files)
   }
   for (experiment_nr in exp_subset) {
+    
     data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[experiment_nr]))
-    p = p +  ggplot2::geom_density(data = data, ggplot2::aes_string(x=variable_name, color = colors[experiment_nr]) )  
+    Q3 <- quantile(data[[variable_name]], Q3p)
+    IQR = IQR(data[[variable_name]])
+    no_outliers <- subset(data[[variable_name]], data[[variable_name]] <= (Q3))
+    mval = mean(no_outliers, na.rm = TRUE)
+    p = p +  ggplot2::geom_density(data = data, ggplot2::aes_string(x=variable_name, color = colors[experiment_nr]) )    +
+      geom_vline(data = data,aes_string(xintercept=mval, color = colors[experiment_nr]),     linetype="dashed", size=1) + xlim(xlim)
   }
   
- p +    ggplot2::ggtitle(atitle) + ggplot2::theme_light()
+ p = p +    ggplot2::ggtitle(atitle) + ggplot2::theme_light()
   
-  
+ ggsave(plotf, p)
   
 }
 
 
-plot_posterior(exp_subset = 1:3, note = "very low sigma")
-plot_posterior(exp_subset = 4:6, note = "low sigma")
-plot_posterior(exp_subset = 7:9, note = "equivalent model")
-plot_posterior(exp_subset = 10:12, note = "ClaDS") + ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf"))
-plot_posterior(exp_subset = 7:12, note = "equivalent model vs clads") + ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf"))
-
-plot_posterior(exp_subset = 13:15, note = "Large sigma")
-plot_posterior(exp_subset = 16:18, note = "Verification")
-
+#plot_posterior(exp_subset = 1:3, note = "very low sigma")
+#plot_posterior(exp_subset = 4:6, note = "low sigma")
+#plot_posterior(exp_subset = 7:9, note = "equivalent model")
+#plot_posterior(exp_subset = 10:12, note = "ClaDS") + ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf"))
+#plot_posterior(exp_subset = 7:12, note = "equivalent model vs clads") + ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf"))
+#plot_posterior(exp_subset = 13:15, note = "Large sigma")
+#plot_posterior(exp_subset = 16:18, note = "Verification")
 
 
-plot_posterior(exp_subset = 10:12, experiment_dir = "experiments/Lari") +  ggplot2::geom_line(data = birch_data(package_dir = "experiments/Lari-birch"), ggplot2::aes_string(x = "lambda0", y = "pdf"))
+
+#plot_posterior(exp_subset = 10:12, experiment_dir = "experiments/Lari") +  ggplot2::geom_line(data = birch_data(package_dir = "experiments/Lari-birch"), ggplot2::aes_string(x = "lambda0", y = "pdf"))
 #colors <- c(paste0("Experiment", package_nr) = 1, "Birch" = 2)
 
 #data_clads2 = importance_sample(variable_name, paste0("experiments/", experiment_files[package_nr]))

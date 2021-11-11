@@ -117,10 +117,11 @@ BBLOCK(test,
 
   floating_t factorSum = 0;
   normalInverseGamma_t alpha_sigma_nu = normalInverseGamma_t(0, 2.0, 3.0, 0.5);
-  for (int i = 0; i < STEPS; i++) {
-    factorSum += SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma_nu);
-  }
-
+  normalInverseGamma_t alpha_sigma_nu2 = normalInverseGamma_t(0, 2.0, 3.0, 0.5);
+  
+  factorSum = SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma_nu) +
+              SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma_nu2);
+  
   PSTATE.f_1_2 = factorSum;
   NEXT = NULL;
 })

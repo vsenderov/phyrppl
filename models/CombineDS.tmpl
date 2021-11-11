@@ -152,8 +152,9 @@ struct progState_t {
   floating_t sigma;
   floating_t alpha_nu; // for anads
   floating_t sigma_nu; // for anads
-  floating_t epsilon;
-  floating_t ypsilon;
+
+//  floating_t epsilon;
+//  floating_t ypsilon;
   
   floating_t factors[(tree->NUM_NODES)]; // first is 1, all other 0 for now
   // TODO
@@ -494,14 +495,16 @@ BBLOCK(sampleFinalLambda, {
     PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
     PSTATE.mu0 = SAMPLE(gamma, PSTATE.mu_0.k, PSTATE.mu_0.theta);
     PSTATE.nu0 = SAMPLE(gamma, PSTATE.nu_0.k, PSTATE.nu_0.theta);
-    
-    floating_t sigmaSquared = 1.0 / SAMPLE(gamma, PSTATE.alpha_sigma.a, 1.0 / PSTATE.alpha_sigma.b);
-    PSTATE.sigma = sigmaSquared;
-    PSTATE.alpha = SAMPLE(normal, PSTATE.alpha_sigma.m0, 1/PSTATE.alpha_sigma.v * PSTATE.sigma);
+    // alpha_sigma - struct with fields m0, v, a, b
+    // gamma - shape k and scale theta
+    // alpha_sigma = NormalInverseGamma(0, 1.0, 1.0, 0.2)
+    floating_t sigmaSquared = 1.0 / (SAMPLE(gamma, PSTATE.alpha_sigma.a, 1.0 / PSTATE.alpha_sigma.b));
+    PSTATE.sigma = sigmaSquared; // sigma is actually sigma2
+    PSTATE.alpha = exp(SAMPLE(normal, PSTATE.alpha_sigma.m0, PSTATE.sigma/PSTATE.alpha_sigma.v));
 
     floating_t sigmaSquared_nu = 1.0 / SAMPLE(gamma, PSTATE.alpha_sigma_nu.a, 1.0 / PSTATE.alpha_sigma_nu.b);
-    PSTATE.sigma_nu = sigmaSquared_nu;
-    PSTATE.alpha_nu = SAMPLE(normal, PSTATE.alpha_sigma_nu.m0, 1/PSTATE.alpha_sigma_nu.v * PSTATE.sigma);
+    PSTATE.sigma_nu = sqrt(sigmaSquared_nu);
+    PSTATE.alpha_nu = exp(SAMPLE(normal, PSTATE.alpha_sigma_nu.m0, PSTATE.sigma_nu/PSTATE.alpha_sigma_nu.v ));
 
     NEXT = NULL;
 })
@@ -515,13 +518,13 @@ BBLOCK(conditionOnDetection, {
     int numSamples = 100;
     int numDetected = 0;
     for(int i = 0; i < numSamples; i++) {
-      bool undetected = BBLOCK_CALL(goesUndetected, treeAge, 1.0, 1);
+      bool undetected = BBLOCK_CALL(goesUndetected, treeAge, 1.0, 0.0);
         if(! undetected)
             numDetected++;
     }
     WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
-    NEXT = sampleFinalLambda;
-    BBLOCK_CALL(NEXT, NULL);
+    NEXT = sampleFinalLambda; // this was a probabilistic simulation, so resampling is needed
+    //BBLOCK_CALL(NEXT, NULL);
 })
 
 
@@ -541,9 +544,9 @@ BBLOCK(simTree,
   // Terminate if tree is fully traversed
   if(treeIdx == -1) {
     //NEXT = NULL;
-    NEXT = conditionOnDetection;
+    NEXT = conditionOnDetection; // no resampling needed here, tree has been traversed
     BBLOCK_CALL(NEXT, NULL);
-    //return;
+    return;
   }
   
   PSTATE.treeIdx = treeP->idxNext[treeIdx]; // advance
@@ -645,7 +648,7 @@ CALLBACK(saveResultsFile, {
     std::ofstream headerFile (headerFileName, std::ios_base::app);
     if (headerFile.is_open()) {
       //headerFile << "k, p, lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta" << std::endl;
-      headerFile << "lambda0, mu0, nu0, alpha, sigma, alpha_nu, sigma_nu" << std::endl;
+      headerFile << "lambda0, mu0, nu0, alpha, sigma2, alpha_nu, sigma_nu2, m0, b, m0_nu, b_nu" << std::endl;
       headerFile.close();
     }
 
@@ -668,7 +671,12 @@ CALLBACK(saveResultsFile, {
 	            << PSTATES[k].alpha << ", "
 		    << PSTATES[k].sigma << ", "
 		    << PSTATES[k].alpha_nu << ", "
-		    << PSTATES[k].sigma_nu << std::endl;
+		    << PSTATES[k].sigma_nu << ", "
+		    << PSTATES[k].alpha_sigma.m0 << ", "
+   		    << PSTATES[k].alpha_sigma.b << ", "
+		    << PSTATES[k].alpha_sigma_nu.m0 << ", "
+    		    << PSTATES[k].alpha_sigma_nu.b <<
+		    std::endl;
 
       }
       resultsFile.close();
