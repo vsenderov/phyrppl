@@ -4,9 +4,9 @@
 #
 #  runppl template_file tree_name rho particle_number number_sweeps
 #
-# E.g.
+# Some examples
 #
-#  ./runppl.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 false 2 1 20000 20
+#  ./runppl.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.1 0 1.0 3.0 0.1 false 2 0 1 10 50000 10
 #
 
 args=("$@")
@@ -26,8 +26,10 @@ do
 done
 
 rootppl -o $dir.out results/$dir.cu
-\time --format "%E" ./$dir.out  "${args[$(($#-2))]}" "${args[$(($#-1))]}" 2> results/time.txt
+#\time --format "%E" ./$dir.out  "${args[$(($#-2))]}" "${args[$(($#-1))]}" 2> results/time.txt
+for i in `seq "${args[$(($#-1))]}"`; do ./$dir.out  "${args[$(($#-2))]}" 1; done &> logz.txt
 mkdir $dir
 mv log_norm_const.txt $dir/
+mv logz.txt $dir/
 mv results/* $dir/
 rm $dir.out
