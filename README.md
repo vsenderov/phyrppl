@@ -2,6 +2,9 @@
 
 ## Changelog
 
+### v0.5.2
+- can handle segfaults with runppl.sh
+
 ### v0.5.1
 - improved final sampling
 - some tests that lead to discovery of a bug in NomalInverseGammaNormal sampler
