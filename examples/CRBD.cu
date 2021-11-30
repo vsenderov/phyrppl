@@ -18,8 +18,10 @@ const floating_t rhoConst = 0.8709677419354839;
 
 const floating_t k = 1.0;
 const floating_t theta = 10e5;
+//const floating_t theta = 1.0;
 const floating_t kMu = 1.0;
 const floating_t thetaMu = (10e5-1);
+//const floating_t thetaMu = 0.5;
 
 #include "models/CRBD.cuh"
 

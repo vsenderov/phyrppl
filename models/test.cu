@@ -92,13 +92,13 @@
 
 /////////////////////////////////////////////////////////////////////////////
 
-#define STEPS 2
+#define STEPS 4
 
 
 /* Program state */
 struct progState_t {
-  floating_t f;
-  floating_t f_1_2;
+  floating_t f = 0;
+  floating_t f_1_2 = 0;
 };
 
 
@@ -116,7 +116,7 @@ BBLOCK(test,
   PSTATE.f = f;
 
   floating_t factorSum = 0;
-  normalInverseGamma_t alpha_sigma_nu = normalInverseGamma_t(0, 2.0, 3.0, 0.5);
+  normalInverseGamma_t alpha_sigma_nu = normalInverseGamma_t(0, 2*2, 3.0, 0.25);
   for (int i = 0; i < STEPS; i++) {
     factorSum += SAMPLE(sample_NormalInverseGammaNormal, alpha_sigma_nu);
   }
@@ -133,8 +133,6 @@ CALLBACK(printResults, {
   for (int i = 0; i < N; i++) {
     meanF += PSTATES[i].f;
     meanF1_2 += PSTATES[i].f_1_2;
-    varF += pow(PSTATES[i].f, 2);
-    varF1_2 += pow(PSTATES[i].f_1_2, 2);
   }
   meanF = meanF / N; meanF1_2 = meanF1_2 / N;
   for (int i = 0; i < N; i++ ) {
@@ -149,4 +147,5 @@ CALLBACK(printResults, {
 MAIN({
     FIRST_BBLOCK(test)
     SMC(printResults)
+    //SMC(NULL)
 })

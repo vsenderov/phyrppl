@@ -37,7 +37,7 @@ plot_posterior = function(variable_name = "lambda0", experiment_dir = "experimen
   atitle = paste("Plot of",variable_name,experiment_dir, note)
   data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[1]))
 
-  colors <- as.factor(substr(experiment_files, 91, 99))
+  colors <- as.factor(substr(experiment_files, 90, 110))
   p = ggplot()
   #p = ggplot2::ggplot(data, ggplot2::aes_string(x = variable_name)) +
    # ggplot2::geom_density(aes(color = colors[1])) +   ggplot2::scale_color_manual(values = colors)

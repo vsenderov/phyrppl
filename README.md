@@ -2,6 +2,9 @@
 
 ## Changelog
 
+### v0.5.3
+Various small changes, mostly improvements to the script tools.
+
 ### v0.5.2
 - can handle segfaults with runppl.sh
 
