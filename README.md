@@ -2,6 +2,11 @@
 
 ## Changelog
 
+### v0.6.0
+
+- Geometric Brownian motion added.
+- This versions works with the new distributions from `phyrppl` after LinearNormalInverseGammaNormal was implemented.
+
 ### v0.5.3
 Various small changes, mostly improvements to the script tools.
 
