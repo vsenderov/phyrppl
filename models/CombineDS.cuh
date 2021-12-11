@@ -1,5 +1,6 @@
 /* 
  *  models/CombineDS.cuh
+ *    -- version without AnaDS-GBM
  *
  *  Copyright (C) 2020-2021 Viktor Senderov and TODO paper authors
  *
