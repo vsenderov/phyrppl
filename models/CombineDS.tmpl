@@ -121,10 +121,12 @@
 #define MIN_FACTOR std::numeric_limits<float>::denorm_min()
 #define MAX_DEPTH __(21)__
 #define PRECISION 10e-5    // used to avoid rounding error pitfalls ~ 1 year
-#define M 20              // Number of subsamples to draw
+#define M 20               // Number of subsamples to draw
 #define DEBUG false
-unsigned int depth;
+#define ANADS_GBM (DATA_POINTER(tree)->ages[ROOT_IDX] > DATA_CONST(stepSize))
 
+
+unsigned int depth;
 const std::string analysisName = "CombineDS";
 
 typedef __(1)___tree_t tree_t;
@@ -169,32 +171,6 @@ INIT_MODEL(progState_t)
 
 
 
-/*
- * getBrownianTime
- *
- * floating_t - the time difference until the next brownian event,
- * 
- * floating_t currentTime - time from which we count.
- *
- * The tree age and the step size will be taken from the global state.
- */
-
-BBLOCK_HELPER(getBrownianTime,
-{
-  tree_t* treeP = DATA_POINTER(tree);
-  floating_t treeAge = treeP->ages[ROOT_IDX];
-  floating_t elapsedTime = treeAge - currentTime;
-  if (abs(elapsedTime) < PRECISION) // we are too close to the root
-  {
-      return DATA_CONST(stepSize);
-  }
-  int nextStep = ceil(elapsedTime / (floating_t) DATA_CONST(stepSize));
-  floating_t nextStepTime = treeAge - nextStep * DATA_CONST(stepSize);
-  floating_t dt = currentTime - nextStepTime;
-  return dt;
-  
- }, floating_t, floating_t currentTime)
-
   
 
 /*
@@ -218,25 +194,25 @@ BBLOCK_HELPER(goesUndetected,
     } 
   }
 
-  floating_t waitingTime_brownian = BBLOCK_CALL(getBrownianTime, startTime);
-  floating_t waitingTime_speciation = SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor);
+  floating_t waitingTime_brownian = DATA_CONST(stepSize);
+  floating_t waitingTime_speciation = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
   floating_t waitingTime_extinction = INFINITY; // case 0
 
   switch(EXTINCTION) {
   case 1:
-    waitingTime_extinction = SAMPLE(sample_GammaExponential, PSTATE.mu_0, 1.0);
+    waitingTime_extinction = SAMPLE(gammaExponential, PSTATE.mu_0, 1.0);
     break;
   case 2:
-    waitingTime_extinction = SAMPLE(sample_GammaExponential, PSTATE.mu_0, factor); 
+    waitingTime_extinction = SAMPLE(gammaExponential, PSTATE.mu_0, factor); 
   }
 
   floating_t waitingTime_anagenesis =  INFINITY; // case 0
   switch(ANADS) {
   case 1:
-    waitingTime_anagenesis =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, 1.0);
+    waitingTime_anagenesis =   SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
     break;
   case 2:
-    waitingTime_anagenesis =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor);
+    waitingTime_anagenesis =   SAMPLE(gammaExponential, PSTATE.nu_0, factor);
   } 
   
   if (DEBUG) printf( "%f %f  %f %f %f %f %d\n", waitingTime_brownian, startTime, factor, waitingTime_speciation,  waitingTime_extinction, waitingTime_anagenesis, depth);
@@ -245,14 +221,14 @@ BBLOCK_HELPER(goesUndetected,
   
   if (waitingTime_brownian < t && waitingTime_brownian < waitingTime_anagenesis) {
     // handle brownian case
-    floating_t currentTime = startTime - waitingTime_brownian - PRECISION; // advance a little bit in the future as not to land
-                                                                           // in the same spot when recurring 
+    floating_t currentTime = startTime - waitingTime_brownian; // ??? Removed -PRECISION
+    
     if (currentTime < 0) {
       bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
       return undetected;
     }
     
-    floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma_nu);
+    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, DATA_CONST(stepSize), 0.0, DATA_CONST(stepSize));
     return BBLOCK_CALL(goesUndetected, currentTime, factor*exp(f1), depth + 1);
   }
   
@@ -274,10 +250,18 @@ BBLOCK_HELPER(goesUndetected,
     // CRBD case
     floating_t fMin = 0.0;
     floating_t fMax = 0.0;
+
+    // epsilon-correction for AnaDS-GBM
+    // the condition for AnaDS-GBM being on will be the step size being less than the tree age
+    // epsilon is exactly t 
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, t, 0.0, t);
+      factor = factor * exp(f);
+    }
     
     if (CLADS) { // cladogenetic change
-      floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
-      floating_t f2 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
+      floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
+      floating_t f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
       if (NICOLAS) {
 	fMin = MIN(f1, f2);
 	fMax = MAX(f1, f2);
@@ -299,8 +283,14 @@ BBLOCK_HELPER(goesUndetected,
       bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
       return undetected;
     }
+
+    // we will make a GBM step also here, as we're recurring
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, waitingTime_anagenesis, 0.0, waitingTime_anagenesis);
+      factor = factor * exp(f);
+    }
     
-    floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma_nu);
+    floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma_nu);
     return BBLOCK_CALL(goesUndetected, currentTime, factor*exp(f1), depth + 1);
   }
  },
@@ -356,44 +346,44 @@ BBLOCK_HELPER(simBranch,
   }
 
   floating_t branchLengthTime = startTime - stopTime;  
-  floating_t tCladogenetic = SAMPLE(sample_GammaExponential, PSTATE.lambda_0, factor);
-  floating_t tBrownian = BBLOCK_CALL(getBrownianTime, startTime);
+  floating_t tCladogenetic = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
+  floating_t tBrownian = DATA_CONST(stepSize);
   floating_t tAnagenetic =  INFINITY; // case 0
 
   switch(ANADS) {
   case 1:
-    tAnagenetic =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, 1.0);
+    tAnagenetic =   SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
     break;
   case 2:
-    tAnagenetic =   SAMPLE(sample_GammaExponential, PSTATE.nu_0, factor);
+    tAnagenetic =   SAMPLE(gammaExponential, PSTATE.nu_0, factor);
   } 
   
   floating_t t = MIN(tAnagenetic, tCladogenetic);
 
   if (tBrownian < t && tBrownian < tAnagenetic) {
-    floating_t currentTime = startTime - tBrownian - PRECISION;
+    floating_t currentTime = startTime - tBrownian; // ??? no need for -PRECISION
     
     if(currentTime <= stopTime) {
       simBranchReturn_t ret(factor, 0); // case 0
       switch (EXTINCTION) {
       case 1:
-	ret.prob = score_GammaPoisson(0, branchLengthTime, PSTATE.mu_0, 1.0);
+	ret.prob = gammaPoissonScore(0, branchLengthTime, PSTATE.mu_0, 1.0);
 	break;
       case 2:
-	ret.prob = score_GammaPoisson(0, branchLengthTime, PSTATE.mu_0, factor);
+	ret.prob = gammaPoissonScore(0, branchLengthTime, PSTATE.mu_0, factor);
       }
       return ret;
     }
 
-    floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma_nu);
+    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, tBrownian, 0.0, tBrownian);
   
     floating_t extinctionProb = 0; // case 0
     switch (EXTINCTION) {
       case 1:
-	extinctionProb = score_GammaPoisson(0, t, PSTATE.mu_0, 1.0);
+	extinctionProb = gammaPoissonScore(0, t, PSTATE.mu_0, 1.0);
 	break;
       case 2:
-	extinctionProb = score_GammaPoisson(0, t, PSTATE.mu_0, factor);
+	extinctionProb = gammaPoissonScore(0, t, PSTATE.mu_0, factor);
       }
     
     simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime, stopTime,  factor*exp(f1));
@@ -411,10 +401,10 @@ BBLOCK_HELPER(simBranch,
       simBranchReturn_t ret(factor, 0); // case 0
       switch (EXTINCTION) {
       case 1:
-	ret.prob = score_GammaPoisson(0, branchLengthTime, PSTATE.mu_0, 1.0);
+	ret.prob = gammaPoissonScore(0, branchLengthTime, PSTATE.mu_0, 1.0);
 	break;
       case 2:
-	ret.prob = score_GammaPoisson(0, branchLengthTime, PSTATE.mu_0, factor);
+	ret.prob = gammaPoissonScore(0, branchLengthTime, PSTATE.mu_0, factor);
       }
       return ret;
     }
@@ -422,11 +412,17 @@ BBLOCK_HELPER(simBranch,
     // hidden speciation event CRBD case
     floating_t f1 = 0.0;
     floating_t f2 = 0.0;
+
+    // GBM Step before speciation
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, t, 0.0, t);
+      factor = factor * exp(f);
+    }
     
     if (CLADS) {
       // TODO count shifts, also in AnaDS case
-      f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
-      f2 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
+      f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
+      f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
       // cannot swap here
     }
     
@@ -441,10 +437,10 @@ BBLOCK_HELPER(simBranch,
     floating_t extinctionProb = 0; // case 0
     switch (EXTINCTION) {
     case 1:
-      extinctionProb = score_GammaPoisson(0, t, PSTATE.mu_0, 1.0);
+      extinctionProb = gammaPoissonScore(0, t, PSTATE.mu_0, 1.0);
       break;
     case 2:
-      extinctionProb = score_GammaPoisson(0, t, PSTATE.mu_0, factor);
+      extinctionProb = gammaPoissonScore(0, t, PSTATE.mu_0, factor);
     }
 
     simBranchReturn_t ret(ret2.factorEnd, ret2.prob + log(2.0) + extinctionProb);
@@ -457,23 +453,29 @@ BBLOCK_HELPER(simBranch,
       simBranchReturn_t ret(factor, 0);
       switch (EXTINCTION) {
       case 1:
-	ret.prob = score_GammaPoisson(0, branchLengthTime, PSTATE.mu_0, 1.0);
+	ret.prob = gammaPoissonScore(0, branchLengthTime, PSTATE.mu_0, 1.0);
 	break;
       case 2:
-	ret.prob = score_GammaPoisson(0, branchLengthTime, PSTATE.mu_0, factor);
+	ret.prob = gammaPoissonScore(0, branchLengthTime, PSTATE.mu_0, factor);
       }
       return ret;
     }
 
-    floating_t f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma_nu);
+    // GBM Step before recursion
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, t, 0.0, t);
+      factor = factor * exp(f);
+    }
+    
+    floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma_nu);
   
     floating_t extinctionProb = 0;
     switch (EXTINCTION) {
       case 1:
-	extinctionProb = score_GammaPoisson(0, t, PSTATE.mu_0, 1.0);
+	extinctionProb = gammaPoissonScore(0, t, PSTATE.mu_0, 1.0);
 	break;
       case 2:
-	extinctionProb = score_GammaPoisson(0, t, PSTATE.mu_0, factor);
+	extinctionProb = gammaPoissonScore(0, t, PSTATE.mu_0, factor);
       }
     
     simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime, stopTime,  factor*exp(f1));
@@ -563,7 +565,7 @@ BBLOCK(simTree,
   floating_t accummulatedProbability = ret.prob;
      
   bool interiorNode = treeP->idxLeft[treeIdx] != -1 || treeP->idxRight[treeIdx] != -1;
-  floating_t lnTerminalProb = interiorNode ? score_GammaExponential(0, PSTATE.lambda_0, factorEnd) : log(DATA_CONST(rho));
+  floating_t lnTerminalProb = interiorNode ? gammaExponentialScore(0, PSTATE.lambda_0, factorEnd) : log(DATA_CONST(rho));
   
   WEIGHT(accummulatedProbability + lnTerminalProb);
 
@@ -574,8 +576,8 @@ BBLOCK(simTree,
     floating_t f2 = 0.0;
 
     if (CLADS) {
-      f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
-      f2 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
+      f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
+      f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
     }
 
     floating_t leftFactorEnd = factorEnd*exp(f1);
@@ -606,8 +608,8 @@ BBLOCK(simCombineDS,
   floating_t f2 = 0.0;
   
   if (CLADS) {
-    f1 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
-    f2 = SAMPLE(sample_NormalInverseGammaNormal, PSTATE.alpha_sigma);
+    f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
+    f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alpha_sigma);
   }
   
   floating_t leftFactor = 1.0 * exp(f1);
