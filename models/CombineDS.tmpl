@@ -169,10 +169,6 @@ struct progState_t {
 
 INIT_MODEL(progState_t)
 
-
-
-  
-
 /*
  
  * goesUndetected - helper function
@@ -300,10 +296,6 @@ BBLOCK_HELPER(goesUndetected,
 	      int depth)
 
 
-
-
-
-
 /* 
  * simBranchReturn_t - return type
  *
@@ -364,6 +356,12 @@ BBLOCK_HELPER(simBranch,
     floating_t currentTime = startTime - tBrownian; // ??? no need for -PRECISION
     
     if(currentTime <= stopTime) {
+      // Handle remaining time before end of observed speciaitons.
+      if (ANADS_GBM) {
+      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, branchLengthTime, 0.0, branchLengthTime);
+      	factor = factor * exp(f);
+      }
+      
       simBranchReturn_t ret(factor, 0); // case 0
       switch (EXTINCTION) {
       case 1:
@@ -398,6 +396,12 @@ BBLOCK_HELPER(simBranch,
     floating_t currentTime = startTime - t;
     
     if(currentTime <= stopTime) {
+      // Redraw factor before observed speciation
+      if (ANADS_GBM) {
+      	 floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, branchLengthTime, 0.0, branchLengthTime);
+      	factor = factor * exp(f);
+      }
+      
       simBranchReturn_t ret(factor, 0); // case 0
       switch (EXTINCTION) {
       case 1:
@@ -450,6 +454,12 @@ BBLOCK_HELPER(simBranch,
     floating_t currentTime = startTime - t;
     
     if(currentTime <= stopTime) {
+      // redraw factor observed speciation
+      if (ANADS_GBM) {
+      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alpha_sigma_nu, branchLengthTime, 0.0, branchLengthTime);
+      	factor = factor * exp(f);
+      }
+       
       simBranchReturn_t ret(factor, 0);
       switch (EXTINCTION) {
       case 1:
