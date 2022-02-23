@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.6.1
+
+- Fixed bugs in the GBM model
+
 ### v0.6.0
 
 - Geometric Brownian motion added.
