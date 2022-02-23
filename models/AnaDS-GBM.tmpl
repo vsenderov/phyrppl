@@ -1,7 +1,7 @@
 /** 
  *  models/AnaDS-GBM.tmpl
  *
- *  Copyright (C) 2020-2021 Viktor Senderov and TODO paper authors
+ *  Copyright (C) 2020-2022 Viktor Senderov and TODO paper authors
  *
  *  Templated file:
  *  $vars need to be replaced by actual values
@@ -51,6 +51,7 @@
 #define EXTINCTION __(18)__  // 2 - constant turnover, 1 - const, 0 - no exticntion
 #define STEP_SIZE __(20)__
 
+/* Do not tune unless you know what you're doing! */
 #define GUARD true
 #define NICOLAS false
 #define MAX_FACTOR 1e5 
@@ -242,8 +243,6 @@ BBLOCK_HELPER(simBranch,
   floating_t branchLength_My = startTime_Mya - stopTime_Mya;  
   floating_t cladogenetic_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
   floating_t brownian_My = DATA_CONST(stepSize);
-  
-  //floating_t t = MIN(tAnagenetic, tCladogenetic);
 
   if (brownian_My < cladogenetic_My) { // step comes before observed speciation
     floating_t currentTime_Mya = startTime_Mya - brownian_My; 
