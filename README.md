@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.6.3
+
+Minimum number must be hardcoded, library function application not possible in CUDA.
+
 ### v0.6.2
 
 - Toolchain improvements.
