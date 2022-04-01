@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.6.2
+
+- Toolchain improvements.
+
 ### v0.6.1
 
 - Fixed bugs in the GBM model
