@@ -2,7 +2,7 @@
 #
 # Usage
 #
-#  runppl template_file tree_name rho particle_number number_sweeps
+#  runppl TEMPLATE-FILE ... NPARTS NSWEEPS NOMPTHREADS CUDAPARTPERTHREAD
 #
 # Some examples
 #
@@ -25,9 +25,13 @@ do
     fi
 done
 
-rootppl -o $dir.out results/$dir.cu
+rootppl clean
+rootppl -o $dir.out results/$dir.cu $RPPL_FLAGS
+
 #\time --format "%E" ./$dir.out  "${args[$(($#-2))]}" "${args[$(($#-1))]}" 2> results/time.txt
-for i in `seq "${args[$(($#-1))]}"`; do ./$dir.out  "${args[$(($#-2))]}" 1; done &> logz.txt
+for i in `seq "${args[$(($#-1))]}"`; do
+    \time -v ./$dir.out  "${args[$(($#-4))]}" "${args[$(($#-3))]}" "${args[$(($#-2))]}" "${args[$(($#-1))]}";
+done 1> logz.txt 2>> results/time.txt
 mkdir $dir
 mv log_norm_const.txt $dir/
 mv logz.txt $dir/
