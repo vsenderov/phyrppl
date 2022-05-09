@@ -2,12 +2,17 @@
 
 ## Changelog
 
-### v.0.6.2
+### v.0.6.3
 
   - Improved Python program for posterior analysis includes median, etc.
   - New framework for running, which supports better statistics and cluster features.
   - Newer version of logz plot.
   - Safety improvements to avoid very rare assert (v > 0) error
+  - Minimum number must be hardcoded, library function application not possible in CUDA.
+
+### v0.6.2
+
+- Toolchain improvements.
 
 ### v0.6.1
 
