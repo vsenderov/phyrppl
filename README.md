@@ -2,6 +2,13 @@
 
 ## Changelog
 
+### v.0.6.2
+
+  - Improved Python program for posterior analysis includes median, etc.
+  - New framework for running, which supports better statistics and cluster features.
+  - Newer version of logz plot.
+  - Safety improvements to avoid very rare assert (v > 0) error
+
 ### v0.6.1
 
 - Fixed bugs in the GBM model
