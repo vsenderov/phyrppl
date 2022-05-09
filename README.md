@@ -2,7 +2,7 @@
 
 ## Changelog
 
-### v.0.6.3
+### v.0.6.4
 
   - Improved Python program for posterior analysis includes median, etc.
   - New framework for running, which supports better statistics and cluster features.
