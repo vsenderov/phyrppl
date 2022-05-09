@@ -57,7 +57,8 @@
 #define GUARD true
 #define NICOLAS false
 #define MAX_FACTOR 1e5 
-#define MIN_FACTOR std::numeric_limits<float>::denorm_min()
+//#define MIN_FACTOR std::numeric_limits<float>::denorm_min()
+#define MIN_FACTOR 1e-40
 #define MAX_DEPTH __(21)__
 #define M 20  // Number of subsamples to draw
 #define DEBUG false
@@ -108,6 +109,17 @@ INIT_MODEL(progState_t)
    the variable name should be something like startTime_Mya;
    if it is a time period, i.e. the time difference between 
    two events -- waitingTime_My; */
+
+BBLOCK_HELPER_DECLARE(safeTime, floating_t, floating_t)
+
+BBLOCK_HELPER(safeTime,
+{
+  if (!(delta_My > 0)) {
+    return MIN_FACTOR;
+  }
+  else return delta_My;
+},
+floating_t, floating_t delta_My)
 
 /**
  * goesUndetected - helper function
@@ -176,7 +188,7 @@ BBLOCK_HELPER(goesUndetected,
 
     // We will make a GBM step also here, with time anagenetic_My, before recursion
     if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, anagenetic_My, 0.0, anagenetic_My);
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
       factor = factor * exp(f);
     }
 
@@ -208,7 +220,7 @@ BBLOCK_HELPER(goesUndetected,
     // the condition for AnaDS-GBM being on will be the step size being less than the tree age
     // epsilon is exactly t 
     if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, speciation_My, 0.0, speciation_My);
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, speciation_My), 0.0, BBLOCK_CALL(safeTime, speciation_My));
       factor = factor * exp(f);
     }
     
@@ -295,7 +307,7 @@ BBLOCK_HELPER(simBranch,
     if(currentTime_Mya <= stopTime_Mya) {
       // Quickly! Redraw the factor, make a GBM step before the branch ends!
       if (ANADS_GBM) {
-      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, branchLength_My, 0.0, branchLength_My);
+      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
       	factor = factor * exp(f);
       }
       
@@ -311,7 +323,7 @@ BBLOCK_HELPER(simBranch,
     }
 
     // Make a "normal" GBM step
-    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, brownian_My, 0.0, brownian_My);
+    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, brownian_My), 0.0, BBLOCK_CALL(safeTime, brownian_My));
 
     // Compute the accummulated non-extinction probability up to currentTime ->
     // brownian_My here I think
@@ -355,7 +367,7 @@ BBLOCK_HELPER(simBranch,
 
     // GBM Step before recursion
     if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, anagenetic_My, 0.0, anagenetic_My);
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
       factor = factor * exp(f);
     }
 
@@ -385,7 +397,7 @@ BBLOCK_HELPER(simBranch,
     if(currentTime_Mya <= stopTime_Mya) {
       // Quickly! Redraw the factor, make a GBM step before the branch ends!
       if (ANADS_GBM) {
-	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, branchLength_My, 0.0, branchLength_My);
+	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
 	factor = factor * exp(f);
       }
       
@@ -406,7 +418,7 @@ BBLOCK_HELPER(simBranch,
 
     // There is a hidden speciation now, do a GBM Step!
     if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, cladogenetic_My, 0.0, cladogenetic_My);
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, cladogenetic_My), 0.0, BBLOCK_CALL(safeTime, cladogenetic_My));
       factor = factor * exp(f);
     }
     
