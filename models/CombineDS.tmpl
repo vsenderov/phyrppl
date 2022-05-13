@@ -76,6 +76,17 @@ BBLOCK_DATA_CONST(stepSize, floating_t, STEP_SIZE)
 
 typedef short treeIdx_t;
 
+struct goesUndetectedFrame_t {
+  floating_t startTime_Mya; // Argument 1
+  floating_t factor; // Argument 1
+  int depth; // Argument 1
+  // Return value.
+  // ret = -1 => Not yet returned
+  // ret = 0 => Return false
+  // ret = 1 => Return true
+  char ret;
+};
+
 struct progState_t {
   treeIdx_t treeIdx; // needed for tree traversal
   floating_t factors[(tree->NUM_NODES)]; // first is 1, all other 0 for now
@@ -101,6 +112,9 @@ struct progState_t {
   //TODO
   //int numberShifts_ClaDS;
   //int numberShifts_AnaDS;  
+
+  goesUndetectedFrame_t gu_frames[MAX_DEPTH];
+  int gu_ptr;
 };
 
 INIT_MODEL(progState_t)
@@ -131,118 +145,166 @@ floating_t, floating_t delta_My)
  */
 BBLOCK_HELPER(goesUndetected,
 {
-  if (GUARD) {
-    if (factor > MAX_FACTOR || depth > MAX_DEPTH) {
-      return false; 
-    }
-    if (factor < MIN_FACTOR) {
-      return false;
-    } 
-  }
+  // Set up initial call stack
+  int& gu_ptr = PSTATE.gu_ptr; gu_ptr = 0;
+  goesUndetectedFrame_t& gu_frames = PSTATE.gu_frames;
+  gu_frames[gu_ptr].startTime_Mya = startTime_Mya;
+  gu_frames[gu_ptr].factor = factor;
+  gu_frames[gu_ptr].depth = depth;
 
-  floating_t brownian_My = DATA_CONST(stepSize);
-  floating_t speciation_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
-  floating_t extinction_My = INFINITY; // case 0
+  while(true) {
 
-  switch(EXTINCTION) {
-  case 1:
-    extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, 1.0);
-    break;
-  case 2:
-    extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, factor); 
-  }
-
-  floating_t anagenetic_My =  INFINITY; // case 0
-  switch(ANADS) {
-  case 1:
-    anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
-    break;
-  case 2:
-    anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, factor);
-  } 
-  
-  if (DEBUG) printf( "%f %f  %f %f %f %d\n", brownian_My, startTime_Mya, factor, speciation_My, extinction_My, depth);
-  
-  floating_t speciationOrExtinction_My = MIN(speciation_My, extinction_My);
-  
-  if (brownian_My < speciationOrExtinction_My && brownian_My < anagenetic_My) {
-    // handle brownian case
-    floating_t currentTime_Mya = startTime_Mya - brownian_My;
-
-    // I don't think we need to redraw GBM here, because it is what it is. Even if we redraw, so what?
-    if (currentTime_Mya < 0) {
-      bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
-      return undetected;
-    }
-    
-    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, DATA_CONST(stepSize), 0.0, DATA_CONST(stepSize));
-    return BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), depth + 1);
-  }
-  if (anagenetic_My < speciationOrExtinction_My && anagenetic_My < brownian_My) {
-    // Rare anagenesis comes first 
-    floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
-    if (currentTime_Mya < 0) {
-      bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
-      return undetected;
-    }
-
-    // We will make a GBM step also here, with time anagenetic_My, before recursion
-    if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
-      factor = factor * exp(f);
-    }
-
-    // Let's draw the rare shift from the clads prior!
-    // TODO Variables names will have be refactored
-    floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-    return BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), depth + 1);
-  }
-  else { // speciation or extinction (CRBD)
-    floating_t currentTime_Mya = startTime_Mya - speciationOrExtinction_My;
-    
-    if (currentTime_Mya < 0) { // we are in the future, rho is the detection probability
-      bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
-      return undetected;
-    }
-    
-    bool speciation =  (speciation_My < extinction_My) ? true : false;
-    bool extinction = !speciation;
-    if(extinction) {
-      return true;
-    }
-    
-    // Speciation
-    // CRBD case
-    floating_t fMin = 0.0;
-    floating_t fMax = 0.0;
-
-    // epsilon-correction for AnaDS-GBM (eps == speciation_My)
-    // the condition for AnaDS-GBM being on will be the step size being less than the tree age
-    // epsilon is exactly t 
-    if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, speciation_My), 0.0, BBLOCK_CALL(safeTime, speciation_My));
-      factor = factor * exp(f);
-    }
-    
-    if (CLADS) { // cladogenetic change
-      floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-      floating_t f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-      if (NICOLAS) {
-	fMin = MIN(f1, f2);
-	fMax = MAX(f1, f2);
-	assert(fMin <= fMax);
-      }
+    // First check if a return value is available at the top of the stack
+    int ret = gu_frames[gu_ptr].ret;
+    if (ret != -1) {
+      // If there are no more stack frames, return
+      if (gu_ptr - 1 == 0) { return ret; }
       else {
-      	fMin = f1;
-      	fMax = f2;
+        bool leftDetection = ! gu_frames[gu_ptr].ret;
+        gu_ptr--;
+        if (leftDetection) {
+          // no need to descend to the right side of the tree
+          gu_frames[gu_ptr].ret = 0; continue;
+        }
+        // Tail call, just replace current frame
+        gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
+        gu_frames[gu_ptr].factor = factor*exp(fMax);
+        gu_frames[gu_ptr].depth = depth + 1;
+        continue;
       }
     }
-    
-    bool leftDetection = ! BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(fMin), depth + 1);
-    if (leftDetection) return false; // no need to descend to the right side of the tree
-    return BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(fMax),  depth + 1);
+
+    // Set startTime_Mya, factor, and depth here
+    startTime_Mya = gu_frames[gu_ptr].startTime_Mya;
+    factor = gu_frames[gu_ptr].factor;
+    depth = gu_frames[gu_ptr].depth;
+
+    if (GUARD) {
+      if (factor > MAX_FACTOR || depth > MAX_DEPTH) {
+        gu_frames[gu_ptr].ret = 0; continue;
+      }
+      if (factor < MIN_FACTOR) {
+        gu_frames[gu_ptr].ret = 0; continue;
+      }
+    }
+
+    floating_t brownian_My = DATA_CONST(stepSize);
+    floating_t speciation_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
+    floating_t extinction_My = INFINITY; // case 0
+
+    switch(EXTINCTION) {
+    case 1:
+      extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, 1.0);
+      break;
+    case 2:
+      extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, factor);
+    }
+
+    floating_t anagenetic_My =  INFINITY; // case 0
+    switch(ANADS) {
+    case 1:
+      anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
+      break;
+    case 2:
+      anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, factor);
+    }
+
+    if (DEBUG) printf( "%f %f  %f %f %f %d\n", brownian_My, startTime_Mya, factor, speciation_My, extinction_My, depth);
+
+    floating_t speciationOrExtinction_My = MIN(speciation_My, extinction_My);
+
+    if (brownian_My < speciationOrExtinction_My && brownian_My < anagenetic_My) {
+      // handle brownian case
+      floating_t currentTime_Mya = startTime_Mya - brownian_My;
+
+      // I don't think we need to redraw GBM here, because it is what it is. Even if we redraw, so what?
+      if (currentTime_Mya < 0) {
+        bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
+        gu_frames[gu_ptr].ret = undetected; continue;
+      }
+
+      floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, DATA_CONST(stepSize), 0.0, DATA_CONST(stepSize));
+
+      // Tail call, just replace current frame
+      gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
+      gu_frames[gu_ptr].factor = factor*exp(f1);
+      gu_frames[gu_ptr].depth = depth + 1;
+      continue;
+    }
+    if (anagenetic_My < speciationOrExtinction_My && anagenetic_My < brownian_My) {
+      // Rare anagenesis comes first
+      floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
+      if (currentTime_Mya < 0) {
+        bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
+        gu_frames[gu_ptr].ret = undetected; continue;
+      }
+
+      // We will make a GBM step also here, with time anagenetic_My, before recursion
+      if (ANADS_GBM) {
+        floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
+        factor = factor * exp(f);
+      }
+
+      // Let's draw the rare shift from the clads prior!
+      // TODO Variables names will have be refactored
+      floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+
+      // Tail call, just replace current frame
+      gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
+      gu_frames[gu_ptr].factor = factor*exp(f1);
+      gu_frames[gu_ptr].depth = depth + 1;
+      continue;
+    }
+    else { // speciation or extinction (CRBD)
+      floating_t currentTime_Mya = startTime_Mya - speciationOrExtinction_My;
+
+      if (currentTime_Mya < 0) { // we are in the future, rho is the detection probability
+        bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
+        gu_frames[gu_ptr].ret = undetected; continue;
+      }
+
+      bool speciation =  (speciation_My < extinction_My) ? true : false;
+      bool extinction = !speciation;
+      if(extinction) {
+        gu_frames[gu_ptr].ret = 1; continue;
+      }
+
+      // Speciation
+      // CRBD case
+      floating_t fMin = 0.0;
+      floating_t fMax = 0.0;
+
+      // epsilon-correction for AnaDS-GBM (eps == speciation_My)
+      // the condition for AnaDS-GBM being on will be the step size being less than the tree age
+      // epsilon is exactly t
+      if (ANADS_GBM) {
+        floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, speciation_My), 0.0, BBLOCK_CALL(safeTime, speciation_My));
+        factor = factor * exp(f);
+      }
+
+      if (CLADS) { // cladogenetic change
+        floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+        floating_t f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+        if (NICOLAS) {
+  	fMin = MIN(f1, f2);
+  	fMax = MAX(f1, f2);
+  	assert(fMin <= fMax);
+        }
+        else {
+        	fMin = f1;
+        	fMax = f2;
+        }
+      }
+
+      // Not a tail call
+      gu_ptr++;
+      gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
+      gu_frames[gu_ptr].factor = factor*exp(fMin);
+      gu_frames[gu_ptr].depth = depth + 1;
+      continue;
+    }
   }
- },
+},
 	      bool,
 	      floating_t startTime_Mya,
 	      floating_t factor,
