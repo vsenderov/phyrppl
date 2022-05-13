@@ -25,7 +25,6 @@ do
     fi
 done
 
-rootppl clean
 rootppl -o $dir.out results/$dir.cu $RPPL_FLAGS
 
 #\time --format "%E" ./$dir.out  "${args[$(($#-2))]}" "${args[$(($#-1))]}" 2> results/time.txt
