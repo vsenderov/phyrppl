@@ -154,7 +154,7 @@ BBLOCK_HELPER(goesUndetected,
 {
   // Set up initial call stack
   int& gu_ptr = PSTATE.gu_ptr; gu_ptr = 0;
-  goesUndetectedFrame_t& gu_frames = PSTATE.gu_frames;
+  goesUndetectedFrame_t *gu_frames = PSTATE.gu_frames;
   gu_frames[gu_ptr].startTime_Mya = startTime_Mya;
   gu_frames[gu_ptr].factor = factor;
   gu_frames[gu_ptr].depth = depth;
@@ -168,7 +168,7 @@ BBLOCK_HELPER(goesUndetected,
       // If there are no more stack frames, return
       if (gu_ptr == 0) { return ret; }
       else {
-        bool leftDetection = ! gu_frames[gu_ptr].ret;
+        bool leftDetection = ! ret;
         gu_ptr--;
         if (leftDetection) {
           // no need to descend to the right side of the tree
