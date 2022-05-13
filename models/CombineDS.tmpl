@@ -177,7 +177,7 @@ BBLOCK_HELPER(goesUndetected,
         // Tail call, just replace current frame
         floating_t& startTime_Mya = gu_frames[gu_ptr].startTime_Mya;
         floating_t& factor = gu_frames[gu_ptr].factor;
-        floating_t& depth = gu_frames[gu_ptr].depth;
+        int& depth = gu_frames[gu_ptr].depth;
         floating_t& currentTime_Mya = gu_frames[gu_ptr].currentTime_Mya;
         floating_t& fMax = gu_frames[gu_ptr].fMax;
         startTime_Mya = currentTime_Mya;
@@ -190,7 +190,7 @@ BBLOCK_HELPER(goesUndetected,
     // Set startTime_Mya, factor, and depth here
     floating_t& startTime_Mya = gu_frames[gu_ptr].startTime_Mya;
     floating_t& factor = gu_frames[gu_ptr].factor;
-    floating_t& depth = gu_frames[gu_ptr].depth;
+    int& depth = gu_frames[gu_ptr].depth;
 
     if (GUARD) {
       if (factor > MAX_FACTOR || depth > MAX_DEPTH) {
