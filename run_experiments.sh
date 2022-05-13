@@ -38,7 +38,7 @@ export OMP_STACKSIZE=" 32G"
 
 #### Anatinae
 
-export RPPL_FLAGS=" -j 28"
+export RPPL_FLAGS=" --target sm_75 -j 28"
 
 # CRBD
 ./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 10000 5 28 1
