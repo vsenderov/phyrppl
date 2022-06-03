@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v 0.6.5
+  - Added posterior sampling
+  - Adapted to new rootppl build system
+
 ### v.0.6.4
 
   - Improved Python program for posterior analysis includes median, etc.
