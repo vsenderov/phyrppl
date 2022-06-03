@@ -6,7 +6,7 @@
 #
 # Some examples
 #
-#  ./runppl.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.1 0 1.0 3.0 0.1 false 2 0 1 10 50000 10
+#  ./runppl.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.1 0 1.0 3.0 0.1 false 2 0 1 10 50000 10 28 1
 #
 
 args=("$@")
@@ -25,15 +25,22 @@ do
     fi
 done
 
-rootppl clean
+#rootppl clean
 rootppl -o $dir.out results/$dir.cu $RPPL_FLAGS
 
-#\time --format "%E" ./$dir.out  "${args[$(($#-2))]}" "${args[$(($#-1))]}" 2> results/time.txt
-for i in `seq "${args[$(($#-1))]}"`; do
-    \time -v ./$dir.out  "${args[$(($#-4))]}" "${args[$(($#-3))]}" "${args[$(($#-2))]}" "${args[$(($#-1))]}";
+for i in `seq "${args[$(($#-3))]}"`; do
+    #\time -v ./$dir.out  "${args[$(($#-4))]}" "${args[$(($#-3))]}" "${args[$(($#-2))]}" "${args[$(($#-1))]}";
+    \time -v ./$dir.out  "${args[$(($#-4))]}" 1 "${args[$(($#-2))]}" "${args[$(($#-1))]}";
 done 1> logz.txt 2>> results/time.txt
 mkdir $dir
-mv log_norm_const.txt $dir/
+mkdir $dir/plots
+cp tools/pdf.py $dir/
+cp tools/sample.py $dir/
 mv logz.txt $dir/
 mv results/* $dir/
+cp $dir/logz.txt $dir/logz.uncleaned
+(cd $dir/ ; sed -i '/Weight Sum is NaN, terminating.../d' logz.txt)
+(cd $dir/ ; python3 pdf.py > estimates.csv)
+#mv log_norm_const.txt $dir/
+
 rm $dir.out

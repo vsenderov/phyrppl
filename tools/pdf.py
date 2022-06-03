@@ -23,7 +23,7 @@ def plot_pdf(x, data, pdf_fn, parameter_map, plotname):
     pdf = np.sum(data['W'].values.reshape((-1, 1)) * pdf_fn(x.reshape((1, -1)), **kwargs), axis=0)
     plt.figure()
     plt.plot(x, pdf)
-    plt.show()
+    #plt.show()
     plt.savefig(plotname)
 
 
