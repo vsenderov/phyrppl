@@ -38,7 +38,7 @@ export OMP_STACKSIZE=" 32G"
 
 #### Anatinae
 
-export RPPL_FLAGS=" --omp"
+export RPPL_FLAGS=" --target omp"
 
 # CRBD
 #./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
@@ -62,71 +62,51 @@ export RPPL_FLAGS=" --omp"
 #### Alcedinidae
 
 # CRBD
-./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
+#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
 
 # Anads-GBM.[0-2]
 
-./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 500 100000 500 28 1
-./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 500 100000 500 28 1
+#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 150 100000 500 28 1
+#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 150 100000 500 28 1
+#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 150 100000 500 28 1
+
+# ClaDS.[0,2] lambda0 ~ 
+#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.67 0 1.0 3.0 0.1 true 0 0 9999 150 100000 500 28 1
+#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.1 true 2 0 9999 150 100000 500 28 1
 
 #### M6
 
 # CRBD
-./runppl.sh CombineDS M6 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
+#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
 
 # Anads-GBM.[0-2]
 
-./runppl.sh CombineDS M6 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS M6 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 500 100000 500 28 1
-./runppl.sh CombineDS M6 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 500 100000 500 28 1
+
+
+#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 150 100000 500 28 1
+./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.12 true 2 0 0.1 1000 100000 10 28 1
+#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.12 false 0 0 0.05 1000 100000 10 28 1
+
+
+# ClaDS[0,2]. lambda0 ~ 
+#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.12 0 1.0 3.0 0.1 true 0 0 9999 150 100000 500 28 1
+#./runppl.sh CombineDS M6 0.7 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.09 0 1.0 3.0 0.1 true 2 0 9999 150 100000 500 28 1
+
 
 #### Accipitridae
 
 # CRBD
-./runppl.sh CombineDS Accipitridae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 150 100000 500 28 1
 
 # Anads-GBM.[0-2]
 
-./runppl.sh CombineDS Accipitridae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS Accipitridae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 500 100000 500 28 1
-./runppl.sh CombineDS Accipitridae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 500 100000 500 28 1
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 150 100000 500 28 1
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 150 100000 500 28 1
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 150 100000 500 28 1
 
+# ClaDS[0,2] lambda0 ~ 
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.83 0 1.0 3.0 0.1 true 0 0 9999 150 100000 500 28 1
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.1 true 2 0 9999 150 100000 500 28 1
 ##### Lari
 
 ##### cetaceans
-
-
-
-
-##### Cetaceans
-
-# anads (const) 0,1,2 - cetaceans
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 false 2 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 false 1 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 false 0 1 50000 100
-
-# clads 0,1,2 - cetaceans
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 true 2 0 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 true 1 0 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.2 true 0 0 50000 100
-
-# anads (const) 0,1,2 - cetaceans equivalent nu * sigma^2 scenario (sigma - halved, scale - multiplied by 4)
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 4.0 0 1.0 1.0 0.2 0 1.0 1.0 0.1 false 2 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 4.0 0 1.0 1.0 0.2 0 1.0 1.0 0.1 false 1 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 4.0 0 1.0 1.0 0.2 0 1.0 1.0 0.1 false 0 1 50000 100
-
-# anads (const) 0,1,2 - cetaceans narrow prior
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.1 false 2 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.1 false 1 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.1 false 0 1 50000 100
-
-# anads (const) 0,1,2 - cetaceans very narrow prior
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.05 false 2 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.05 false 1 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.05 false 0 1 50000 100
-
-# anads (const) 0,1,2 - cetaceans broad prior
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.4 false 2 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.4 false 1 1 50000 100
-#./runppl.sh CombineDS cetaceans 1.0 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 1.0 0.2 0 1.0 1.0 0.4 false 0 1 50000 100
