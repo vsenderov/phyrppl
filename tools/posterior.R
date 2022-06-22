@@ -31,57 +31,32 @@ birch_data = function(variable_name = "lambda0",
 
 
 # plotting
-plot_posterior = function(variable_name = "lambda0", experiment_dir = "experiments/Anatinae", exp_subset = NA, note="",
-                          plotf  = "plot.png", xlim = c(0,4), Q3p = 1.0) {
+plot_posterior = function(variable_name = "lambda0",
+                          experiment_dir = "Anatinae",
+                          exp_subset = NA, note = "",
+                          plotf  = "plot.png", xlim = c(0,2))
+{
   experiment_files = list.files(experiment_dir)
-  atitle = paste("Plot of",variable_name,experiment_dir, note)
-  data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[1]))
-
-  colors <- as.factor(substr(experiment_files, 90, 110))
-  p = ggplot()
-  #p = ggplot2::ggplot(data, ggplot2::aes_string(x = variable_name)) +
-   # ggplot2::geom_density(aes(color = colors[1])) +   ggplot2::scale_color_manual(values = colors)
-    
-  if (is.na(exp_subset)) {
+  atitle = paste("Posterior plot of", variable_name, "for", experiment_dir, note)
+  #data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[1]))
+  data = read.csv(file.path(experiment_dir, experiment_files[1], "data", paste0( variable_name, ".csv")))
+  colors = as.factor(sapply(strsplit(experiment_files, "_"), function(split) {split[length(split)]}))
+  
+  p = ggplot()# + geom_line(data = data, aes(x = x, y = pdf, color = colors[1])) + xlim(xlim)
+  
+  if (length(exp_subset) == 1 && is.na(exp_subset)) {
     exp_subset = 1:length(experiment_files)
   }
+  
   for (experiment_nr in exp_subset) {
+    #data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[experiment_nr]))
+    data = read.csv(file.path(experiment_dir, experiment_files[experiment_nr], "data", paste0( variable_name, ".csv")))
     
-    data = importance_sample(variable_name, paste0(experiment_dir, "//", experiment_files[experiment_nr]))
-    Q3 <- quantile(data[[variable_name]], Q3p)
-    IQR = IQR(data[[variable_name]])
-    no_outliers <- subset(data[[variable_name]], data[[variable_name]] <= (Q3))
-    mval = mean(no_outliers, na.rm = TRUE)
-    p = p +  ggplot2::geom_density(data = data, ggplot2::aes_string(x=variable_name, color = colors[experiment_nr]) )    +
-      geom_vline(data = data,aes_string(xintercept=mval, color = colors[experiment_nr]),     linetype="dashed", size=1) + xlim(xlim)
+    p = p + geom_line(data = data, aes_string(x = "x", y = "pdf", color = colors[experiment_nr])) + xlim(xlim)  
   }
   
  p = p +    ggplot2::ggtitle(atitle) + ggplot2::theme_light()
   
  ggsave(plotf, p)
-  
+ p  
 }
-
-
-#plot_posterior(exp_subset = 1:3, note = "very low sigma")
-#plot_posterior(exp_subset = 4:6, note = "low sigma")
-#plot_posterior(exp_subset = 7:9, note = "equivalent model")
-#plot_posterior(exp_subset = 10:12, note = "ClaDS") + ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf"))
-#plot_posterior(exp_subset = 7:12, note = "equivalent model vs clads") + ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf"))
-#plot_posterior(exp_subset = 13:15, note = "Large sigma")
-#plot_posterior(exp_subset = 16:18, note = "Verification")
-
-
-
-#plot_posterior(exp_subset = 10:12, experiment_dir = "experiments/Lari") +  ggplot2::geom_line(data = birch_data(package_dir = "experiments/Lari-birch"), ggplot2::aes_string(x = "lambda0", y = "pdf"))
-#colors <- c(paste0("Experiment", package_nr) = 1, "Birch" = 2)
-
-#data_clads2 = importance_sample(variable_name, paste0("experiments/", experiment_files[package_nr]))
-#p = ggplot2::ggplot(data_clads2, ggplot2::aes_string(x = "lambda0")) +
-#  ggplot2::geom_density(ggplot2::aes(color = "ClaDS2")) +
-#  ggplot2::ggtitle(atitle) + ggplot2::theme_light() +
-#  ggplot2::scale_color_manual(values = colors) +
-#  ggplot2::geom_line(data = birch_data(), ggplot2::aes_string(x = "lambda0", y = "pdf", color = '"Birch"'))  +
-#  ggplot2::geom_density(data = data_anads21, ggplot2::aes_string(x="lambda0", color='"AnaDS21"'))
-
-#p

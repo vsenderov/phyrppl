@@ -11,20 +11,27 @@ header_file = "CombineDS_header.csv"
 logZ_file = "logz.txt"
 
 # Grids (row vectors)
-λ = np.linspace(0, 1, num=201)
-μ = np.linspace(0, 1, num=201)
+λ = np.linspace(0, 2, num=201)
+μ = np.linspace(0, 2, num=201)
 η = np.linspace(0, 0.05, num=201)
 log_α = np.linspace(-1, 1, num=201)
 σ2 = np.linspace(0, 1, num=201)
 
 
-def plot_pdf(x, data, pdf_fn, parameter_map, plotname):
+def plot_pdf(x, data, pdf_fn, parameter_map, plotname, plotdata):
     kwargs = {k: data[v].values.reshape((-1, 1)) for k, v in parameter_map.items()}
     pdf = np.sum(data['W'].values.reshape((-1, 1)) * pdf_fn(x.reshape((1, -1)), **kwargs), axis=0)
     plt.figure()
     plt.plot(x, pdf)
-    #plt.show()
     plt.savefig(plotname)
+    #plt.show()
+    # also save the raw data
+    import pandas as pd
+    # dictionary of lists
+    dict = {'x': x, 'pdf': pdf}
+    df = pd.DataFrame(dict)
+    # saving the dataframe
+    df.to_csv(plotdata)
 
 
 def pdf_normal_inverse_gamma_v(x, μ, v, α, β):
@@ -115,10 +122,10 @@ print("Mean sigma2", np.mean(sample_sigma))
 print("Var sigma2", np.var(sample_sigma))
 print("Median sigma2", np.median(sample_sigma))
 """
-plot_pdf(λ, data, gamma.pdf, {'a': 'lambda_0.k', 'scale': 'lambda_0.theta'}, 'plots/lambda0.png')
-plot_pdf(μ, data, gamma.pdf, {'a': 'mu_0.k', 'scale': 'mu_0.theta'}, 'plots/mu0.png')
-#plot_pdf(η, data, gamma.pdf, {'a': 'η_k', 'scale': 'η_θ'}, 'eta.png')
-plot_pdf(log_α, data, pdf_normal_inverse_gamma_v, {'μ': 'alphaSigma_gbm.m0', 'v': 'alphaSigma_gbm.v', 'α': 'alphaSigma_gbm.a', 'β': 'alphaSigma_gbm.b'}, 'plots/gbm-log-alpha.png')
-plot_pdf(σ2, data, invgamma.pdf, {'a': 'alphaSigma_gbm.a', 'scale': 'alphaSigma_gbm.b'}, 'plots/gbm-sigma2.png')
-plot_pdf(log_α, data, pdf_normal_inverse_gamma_v, {'μ': 'alphaSigma.m0', 'v': 'alphaSigma.v', 'α': 'alphaSigma.a', 'β': 'alphaSigma.b'}, 'plots/log-alpha.png')
-plot_pdf(σ2, data, invgamma.pdf, {'a': 'alphaSigma.a', 'scale': 'alphaSigma.b'}, 'plots/sigma2.png')
+plot_pdf(λ, data, gamma.pdf, {'a': 'lambda_0.k', 'scale': 'lambda_0.theta'}, 'plots/lambda0.png', 'data/lambda0.csv')
+plot_pdf(μ, data, gamma.pdf, {'a': 'mu_0.k', 'scale': 'mu_0.theta'}, 'plots/mu0.png', 'data/mu0.csv')
+#plot_pdf(η, data, gamma.pdf, {'a': 'η_k', 'scale': 'η_θ'}, 'plots/eta.png', 'data/eta.csv')
+plot_pdf(log_α, data, pdf_normal_inverse_gamma_v, {'μ': 'alphaSigma_gbm.m0', 'v': 'alphaSigma_gbm.v', 'α': 'alphaSigma_gbm.a', 'β': 'alphaSigma_gbm.b'}, 'plots/gbm-log-alpha.png', 'data/gbm-log-alpha.csv')
+plot_pdf(σ2, data, invgamma.pdf, {'a': 'alphaSigma_gbm.a', 'scale': 'alphaSigma_gbm.b'}, 'plots/gbm-sigma2.png', 'data/gbm-sigma2.csv')
+plot_pdf(log_α, data, pdf_normal_inverse_gamma_v, {'μ': 'alphaSigma.m0', 'v': 'alphaSigma.v', 'α': 'alphaSigma.a', 'β': 'alphaSigma.b'}, 'plots/log-alpha.png', 'data/log-alpha.csv')
+plot_pdf(σ2, data, invgamma.pdf, {'a': 'alphaSigma.a', 'scale': 'alphaSigma.b'}, 'plots/sigma2.png', 'data/sigma2.csv')

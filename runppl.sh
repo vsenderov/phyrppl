@@ -2,12 +2,13 @@
 #
 # Usage
 #
-#  runppl TEMPLATE-FILE ... NPARTS NSWEEPS NOMPTHREADS CUDAPARTPERTHREAD
-#
+#  runppl TEMPLATE-FILE ... NPARTS NSWEEPS NOMPTHREADS CUDAPARTPERTHREAD MODELNAME
+#                            -5       -4      -3            -2               -1
 # Some examples
 #
-#  ./runppl.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.1 0 1.0 3.0 0.1 false 2 0 1 10 50000 10 28 1
+#  ./runppl.sh CombineDS Anatinae 0.8709677419354839 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.1 0 1.0 3.0 0.1 false 2 0 1 10 50000 10 28 1 anadsGBM2
 #
+
 
 args=("$@")
 for ((i=0; i < $#; i++))
@@ -27,13 +28,17 @@ done
 
 #rootppl clean
 rootppl -o $dir.out results/$dir.cu $RPPL_FLAGS
-
-for i in `seq "${args[$(($#-3))]}"`; do
-    #\time -v ./$dir.out  "${args[$(($#-4))]}" "${args[$(($#-3))]}" "${args[$(($#-2))]}" "${args[$(($#-1))]}";
-    \time -v ./$dir.out  "${args[$(($#-4))]}" 1 "${args[$(($#-2))]}" "${args[$(($#-1))]}";
+#                        NSWEEPS
+for i in `seq "${args[$(($#-4))]}"`; do
+#                                NPARTS               NOMPTHREADS         CUDAPARTPTHR
+    \time -v ./$dir.out  "${args[$(($#-5))]}" 1 "${args[$(($#-3))]}" "${args[$(($#-2))]}";
 done 1> logz.txt 2>> results/time.txt
 mkdir $dir
 mkdir $dir/plots
+mkdir $dir/data
+#                        MODELNAME
+cp tools/treesim-"${args[$(($#-1))]}".js $dir/"${args[$(($#-1))]}".js
+echo "${args[$(($#-1))]}" > $dir/model.txt
 cp tools/pdf.py $dir/
 cp tools/sample.py $dir/
 mv logz.txt $dir/

@@ -36,77 +36,67 @@ export OMP_STACKSIZE=" 32G"
  #*     __(21)__ - DEPTH
  #*
 
+# viktor 2022-06-03
+# The purpose of this experiment is to rerun the 4 bird trees (finally, hopefully)
+# with 0.05 step size, 500 depth, and the _correct_ priors.
+# We're running only 100 iterations, though, hopefully this will be correct.
+# 2022-06-12 - 100 iterations not enough, running another 100 + 200 for clads (lambda0 estimates based only on 100 iterations though)
+
 #### Anatinae
 
 export RPPL_FLAGS=" --target omp"
 
 # CRBD
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
+./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 100 28 1 crbd
 
 # Anads-GBM.[0-2]
 
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 500 100000 500 28 1
+./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.05 500 100000 100 28 1 anadsGBM0
+./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.05 500 100000 100 28 1 anadsGBM2
 
-# ClaDS.[0-2] lambda0 ~ 0.18 0.45 0.4
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.1 true 0 0 9999 500 100000 500 28 1
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.22 0 1.0 3.0 0.1 true 1 0 9999 500 100000 500 28 1
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.1 true 2 0 9999 500 100000 500 28 1
-
-# AnaDS-GBM+ClaDS.[0-2]
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 true 2 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 true 1 0 0.1 500 100000 500 28 1
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 true 0 0 0.1 500 100000 500 28 1
+# ClaDS.[0-2] lambda0 GBM0 ~ 0.1/0.21583704337743892 = 0.4633125; GBM2 ~ 0.1/0.42588624478199844 = 0.2348045
+./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.46 true 0 0 9999 500 100000 200 28 1 clads0
+./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.23 true 2 0 9999 500 100000 500 28 1 clads2
 
 #### Alcedinidae
 
 # CRBD
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
+./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 100 28 1 crbd
 
 # Anads-GBM.[0-2]
 
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 150 100000 500 28 1
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 150 100000 500 28 1
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 150 100000 500 28 1
+./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.05 500 100000 100 28 1 anadsGBM0
+./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.05 500 100000 100 28 1 anadsGBM2
 
-# ClaDS.[0,2] lambda0 ~ 
-#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.67 0 1.0 3.0 0.1 true 0 0 9999 150 100000 500 28 1
-#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.1 true 2 0 9999 150 100000 500 28 1
+# ClaDS.[0,2] lambda0 GBM0 ~ 0.1/0.13277552908064916 = 0.7531508; GBM2 ~ 0.1/0.3480547165639467 = 0.2873111
+./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.67 0 1.0 3.0 0.75 true 0 0 9999 500 100000 200 28 1 clads0
+./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.29 true 2 0 9999 500 100000 200 28 1 clads2
 
 #### M6
 
 # CRBD
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 500 28 1
+./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 100 28 1 crbd
 
 # Anads-GBM.[0-2]
 
+./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.05 500 100000 100 28 1 anadsGBM0
+./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.05 500 100000 100 28 1 anadsGBM2
 
-
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 150 100000 500 28 1
-./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.12 true 2 0 0.1 1000 100000 10 28 1
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.12 false 0 0 0.05 1000 100000 10 28 1
-
-
-# ClaDS[0,2]. lambda0 ~ 
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.12 0 1.0 3.0 0.1 true 0 0 9999 150 100000 500 28 1
-#./runppl.sh CombineDS M6 0.7 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.09 0 1.0 3.0 0.1 true 2 0 9999 150 100000 500 28 1
-
+# ClaDS[0,2]. GBM0: lambda0 ~ 0.1/0.8158907158351305=0.1225654; GBM2 ~ 0.1/1.0942973023640103 =  0.09138284
+./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.12 0 1.0 3.0 0.12 true 0 0 9999 500 100000 200 28 1 clads0
+./runppl.sh CombineDS M6 0.7 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.09 0 1.0 3.0 0.09 true 2 0 9999 500 100000 200 28 1 clads2
 
 #### Accipitridae
 
 # CRBD
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 150 100000 500 28 1
+./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 100000 100 28 1 crbd
 
 # Anads-GBM.[0-2]
 
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 150 100000 500 28 1
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 0.1 150 100000 500 28 1
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 150 100000 500 28 1
+./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.05 500 100000 100 28 1 anadsGBM0
+./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.05 500 100000 100 28 1 anadsGBM2
 
-# ClaDS[0,2] lambda0 ~ 
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.83 0 1.0 3.0 0.1 true 0 0 9999 150 100000 500 28 1
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.1 true 2 0 9999 150 100000 500 28 1
-##### Lari
+# ClaDS[0,2] lambda0 GBM0 ~ 0.1/0.12418703233897882 = 0.8052371 GBM2 ~ 0.1/0.21113466629524846 =  0.4736314
+./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.83 0 1.0 3.0 0.81 true 0 0 9999 500 100000 200 28 1 clads0
+./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.47 true 2 0 9999 500 100000 200 28 1 clads2
 
-##### cetaceans
