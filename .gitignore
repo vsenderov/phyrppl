@@ -3,3 +3,4 @@ log_norm_const.txt
 program
 .Rhistory
 build/
+.vscode/

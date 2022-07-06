@@ -2,6 +2,14 @@
 
 ## Changelog
 
+### v0.7.0
+Major update - CombinDS can now run on CUDA as recursion is replaced by iteration.
+
+  - Keep the old version of CombineDS that uses recursion just in case.
+  - Ignore vscode hidden directories.
+  - simBranch now avoids recursion
+  - replaces goesUndetected recursion with iteration
+
 ### v 0.6.5
   - Added posterior sampling
   - Adapted to new rootppl build system
