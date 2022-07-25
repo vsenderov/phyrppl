@@ -45,7 +45,8 @@ export OMP_STACKSIZE=" 32G"
 
 #### Anatinae age = 20.27
 
-export RPPL_FLAGS=" --target sm_75 -j 28"
+#export RPPL_FLAGS=" --target sm_75 -j 28"
+export RPPL_FLAGS=" --target omp -j 4"
 
 # CRBD
 #./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 20000 5 28 1 crbd
@@ -94,10 +95,10 @@ export RPPL_FLAGS=" --target sm_75 -j 28"
 
 # Anads-GBM.[0-2]
 
-./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 1200 10000 20 28 1 anadsGBM0
-./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 1200 10000 20 28 1 anadsGBM2
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 1200 10000 20 28 1 anadsGBM0
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 1200 10000 20 28 1 anadsGBM2
 
 # ClaDS[0,2] lambda0 GBM0 ~ 0.1/0.12418703233897882 = 0.8052371 GBM2 ~ 0.1/0.21113466629524846 =  0.4736314
-./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.83 0 1.0 3.0 0.81 true 0 0 9999 1200 10000 20 28 1 clads0
-./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.47 true 2 0 9999 1200 10000 20 28 1 clads2
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.83 0 1.0 3.0 0.81 true 0 0 9999 1200 10000 20 28 1 clads0
+#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.47 true 2 0 9999 1200 10000 20 28 1 clads2
 

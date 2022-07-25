@@ -1,35 +1,35 @@
 /** 
-*  models/CombineDS.tmpl
-*
-*  Copyright (C) 2020-2022 Viktor Senderov and TODO paper authors
-*
-*  Templated file:
-*  $vars need to be replaced by actual values
-*  with ./compile_template.sh or ./runppl.sh
-*  
-*     __(1)__ - tree
-*     __(2)__ - rho
-*     __(3)__ - lamdba0 shape
-*     __(4)__ - lambda0 scale
-*     __(5)__ - mu0 shape
-*     __(6)__ - mu0 scale
-*     __(7)__ - nu0 scape
-*     __(8)__ - nu0 scale
-*     __(9)__ - alpha, sigma (clads or rare) - m0 
-*     __(10)__ - alpha, sigma (clads or rare) - v 
-*     __(11)__ - alpha, sigma (clads or rare) - a
-*     __(12)__ - alpha, sigma (clads or rare) - b 
-*     __(13)__ - alpha, sigma (GBM) - m0
-*     __(14)__ - alpha, sigma (GBM) - v
-*     __(15)__ - alpha, sigma (GBM) - a
-*     __(16)__ - alpha, sigma (GBM) - b
-*     __(17)__ - clads (true/false)
-*     __(18)__ - extinction level (0 - none, 1 - const, 2 - turnover const) TODO 3
-*     __(19)__ - stochastic level (0 - none, 1 - const, 2 - turnover to lambda const)/ rare shifts
-*     __(20)__ - step size for AnaDS-GBM
-*     __(21)__ - maximum recursion depth allowed in side-branch simulations
-* 
-*/
+ *  models/CombineDS.tmpl
+ *
+ *  Copyright (C) 2020-2022 Viktor Senderov and TODO paper authors
+ *
+ *  Templated file:
+ *  $vars need to be replaced by actual values
+ *  with ./compile_template.sh or ./runppl.sh
+ *  
+ *     __(1)__ - tree
+ *     __(2)__ - rho
+ *     __(3)__ - lamdba0 shape
+ *     __(4)__ - lambda0 scale
+ *     __(5)__ - mu0 shape
+ *     __(6)__ - mu0 scale
+ *     __(7)__ - nu0 scape
+ *     __(8)__ - nu0 scale
+ *     __(9)__ - alpha, sigma (clads or rare) - m0 
+ *     __(10)__ - alpha, sigma (clads or rare) - v 
+ *     __(11)__ - alpha, sigma (clads or rare) - a
+ *     __(12)__ - alpha, sigma (clads or rare) - b 
+ *     __(13)__ - alpha, sigma (GBM) - m0
+ *     __(14)__ - alpha, sigma (GBM) - v
+ *     __(15)__ - alpha, sigma (GBM) - a
+ *     __(16)__ - alpha, sigma (GBM) - b
+ *     __(17)__ - clads (true/false)
+ *     __(18)__ - extinction level (0 - none, 1 - const, 2 - turnover const) TODO 3
+ *     __(19)__ - stochastic level (0 - none, 1 - const, 2 - turnover to lambda const)/ rare shifts
+ *     __(20)__ - step size for AnaDS-GBM
+ *     __(21)__ - maximum recursion depth allowed in side-branch simulations
+ * 
+ */
 
 #include <iostream>
 #include <cstring>
@@ -76,30 +76,12 @@ BBLOCK_DATA_CONST(stepSize, floating_t, STEP_SIZE)
 
 typedef short treeIdx_t;
 
-struct goesUndetectedFrame_t {
-  
-  // Arguments
-  floating_t startTime_Mya;
-  floating_t factor;
-  int depth;
-  
-  // Some needed local variables
-  floating_t currentTime_Mya;
-  floating_t fMax;
-  
-  // Return value.
-  // ret = -1 => Not yet returned
-  // ret = 0 => Return false
-  // ret = 1 => Return true
-  char ret;
-};
-
 struct progState_t {
   treeIdx_t treeIdx; // needed for tree traversal
   floating_t factors[(tree->NUM_NODES)]; // first is 1, all other 0 for now
   // TODO Technically we don't need a factor for the root (it is assumed to be 1)
   // But for now we are going to waste one posistion for easier debugging.
-  
+
   // Prior distributions
   gamma_t lambda_0;
   gamma_t mu_0;
@@ -119,630 +101,573 @@ struct progState_t {
   //TODO
   //int numberShifts_ClaDS;
   //int numberShifts_AnaDS;  
-  
-  goesUndetectedFrame_t gu_frames[MAX_DEPTH + 2];
-  int gu_ptr;
 };
 
 INIT_MODEL(progState_t)
 
 /* We will make a convention here: if a time is absolute time, 
-the variable name should be something like startTime_Mya;
-if it is a time period, i.e. the time difference between 
-two events -- waitingTime_My; */
+   the variable name should be something like startTime_Mya;
+   if it is a time period, i.e. the time difference between 
+   two events -- waitingTime_My; */
 
 BBLOCK_HELPER_DECLARE(safeTime, floating_t, floating_t)
 
 BBLOCK_HELPER(safeTime,
-  {
-    if (!(delta_My > 0)) {
-      return MIN_FACTOR;
+{
+  if (!(delta_My > 0)) {
+    return MIN_FACTOR;
+  }
+  else return delta_My;
+},
+floating_t, floating_t delta_My)
+
+/**
+ * goesUndetected - helper function
+ *
+ *            bool,
+ *            floating_t startTime_Mya -- current time at which we investigate,
+ *	      floating_t factor,
+ *            int depth
+ */
+BBLOCK_HELPER(goesUndetected,
+{
+  if (GUARD) {
+    if (factor > MAX_FACTOR || depth > MAX_DEPTH) {
+      return false; 
     }
-    else return delta_My;
-  },
-  floating_t, floating_t delta_My)
+    if (factor < MIN_FACTOR) {
+      return false;
+    } 
+  }
+
+  floating_t brownian_My = DATA_CONST(stepSize);
+  floating_t speciation_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
+  floating_t extinction_My = INFINITY; // case 0
+
+  switch(EXTINCTION) {
+  case 1:
+    extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, 1.0);
+    break;
+  case 2:
+    extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, factor); 
+  }
+
+  floating_t anagenetic_My =  INFINITY; // case 0
+  switch(ANADS) {
+  case 1:
+    anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
+    break;
+  case 2:
+    anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, factor);
+  } 
   
-  /**
-  * goesUndetected - helper function
-  *
-  *            bool,
-  *            floating_t startTime_Mya -- current time at which we investigate,
-  *	      floating_t factor,
-  *            int depth
-  */
-  BBLOCK_HELPER(goesUndetected,
-    {
-      // Set up initial call stack
-      int& gu_ptr = PSTATE.gu_ptr; gu_ptr = 0;
-      goesUndetectedFrame_t *gu_frames = PSTATE.gu_frames;
-      gu_frames[gu_ptr].startTime_Mya = startTime_Mya;
-      gu_frames[gu_ptr].factor = factor;
-      gu_frames[gu_ptr].depth = depth;
-      gu_frames[gu_ptr].ret = -1;
-      
-      while(true) {
-        
-        // First check if a return value is available at the top of the stack
-        int ret = gu_frames[gu_ptr].ret;
-        if (ret != -1) {
-          // If there are no more stack frames, return
-          if (gu_ptr == 0) { return ret; }
-          else {
-            bool leftDetection = ! ret;
-            gu_ptr--;
-            if (leftDetection) {
-              // no need to descend to the right side of the tree
-              gu_frames[gu_ptr].ret = 0; continue;
-            }
-            // Tail call, just replace current frame
-            floating_t& startTime_Mya = gu_frames[gu_ptr].startTime_Mya;
-            floating_t& factor = gu_frames[gu_ptr].factor;
-            int& depth = gu_frames[gu_ptr].depth;
-            floating_t& currentTime_Mya = gu_frames[gu_ptr].currentTime_Mya;
-            floating_t& fMax = gu_frames[gu_ptr].fMax;
-            startTime_Mya = currentTime_Mya;
-            factor = factor*exp(fMax);
-            depth = depth + 1;
-            continue;
-          }
-        }
-        
-        // Set startTime_Mya, factor, and depth here
-        floating_t& startTime_Mya = gu_frames[gu_ptr].startTime_Mya;
-        floating_t& factor = gu_frames[gu_ptr].factor;
-        int& depth = gu_frames[gu_ptr].depth;
-        
-        if (GUARD) {
-          if (factor > MAX_FACTOR || depth > MAX_DEPTH) {
-            gu_frames[gu_ptr].ret = 0; continue;
-          }
-          if (factor < MIN_FACTOR) {
-            gu_frames[gu_ptr].ret = 0; continue;
-          }
-        }
-        
-        floating_t brownian_My = DATA_CONST(stepSize);
-        floating_t speciation_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
-        floating_t extinction_My = INFINITY; // case 0
-        
-        switch(EXTINCTION) {
-          case 1:
-          extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, 1.0);
-          break;
-          case 2:
-          extinction_My = SAMPLE(gammaExponential, PSTATE.mu_0, factor);
-        }
-        
-        floating_t anagenetic_My =  INFINITY; // case 0
-        switch(ANADS) {
-          case 1:
-          anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
-          break;
-          case 2:
-          anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, factor);
-        }
-        
-        if (DEBUG) printf( "%f %f  %f %f %f %d\n", brownian_My, startTime_Mya, factor, speciation_My, extinction_My, depth);
-        
-        floating_t speciationOrExtinction_My = MIN(speciation_My, extinction_My);
-        
-        if (brownian_My < speciationOrExtinction_My && brownian_My < anagenetic_My) {
-          // handle brownian case
-          floating_t currentTime_Mya = startTime_Mya - brownian_My;
-          
-          // I don't think we need to redraw GBM here, because it is what it is. Even if we redraw, so what?
-          if (currentTime_Mya < 0) {
-            bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
-            gu_frames[gu_ptr].ret = undetected; continue;
-          }
-          
-          floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, DATA_CONST(stepSize), 0.0, DATA_CONST(stepSize));
-          
-          // Tail call, just replace current frame
-          gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
-          gu_frames[gu_ptr].factor = factor*exp(f1);
-          gu_frames[gu_ptr].depth = depth + 1;
-          continue;
-        }
-        if (anagenetic_My < speciationOrExtinction_My && anagenetic_My < brownian_My) {
-          // Rare anagenesis comes first
-          floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
-          if (currentTime_Mya < 0) {
-            bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
-            gu_frames[gu_ptr].ret = undetected; continue;
-          }
-          
-          // We will make a GBM step also here, with time anagenetic_My, before recursion
-          if (ANADS_GBM) {
-            floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
-            factor = factor * exp(f);
-          }
-          
-          // Let's draw the rare shift from the clads prior!
-          // TODO Variables names will have be refactored
-          floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-          
-          // Tail call, just replace current frame
-          gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
-          gu_frames[gu_ptr].factor = factor*exp(f1);
-          gu_frames[gu_ptr].depth = depth + 1;
-          continue;
-        }
-        else { // speciation or extinction (CRBD)
-          floating_t& currentTime_Mya = gu_frames[gu_ptr].currentTime_Mya;
-          currentTime_Mya = startTime_Mya - speciationOrExtinction_My;
-          
-          if (currentTime_Mya < 0) { // we are in the future, rho is the detection probability
-            bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
-            gu_frames[gu_ptr].ret = undetected; continue;
-          }
-          
-          bool speciation =  (speciation_My < extinction_My) ? true : false;
-          bool extinction = !speciation;
-          if(extinction) {
-            gu_frames[gu_ptr].ret = 1; continue;
-          }
-          
-          // Speciation
-          // CRBD case
-          floating_t fMin = 0.0;
-          floating_t& fMax = gu_frames[gu_ptr].fMax;
-          fMax = 0.0;
-          
-          // epsilon-correction for AnaDS-GBM (eps == speciation_My)
-          // the condition for AnaDS-GBM being on will be the step size being less than the tree age
-          // epsilon is exactly t
-          if (ANADS_GBM) {
-            floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, speciation_My), 0.0, BBLOCK_CALL(safeTime, speciation_My));
-            factor = factor * exp(f);
-          }
-          
-          if (CLADS) { // cladogenetic change
-            floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-            floating_t f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-            if (NICOLAS) {
-              fMin = MIN(f1, f2);
-              fMax = MAX(f1, f2);
-              assert(fMin <= fMax);
-            }
-            else {
-              fMin = f1;
-              fMax = f2;
-            }
-          }
-          
-          // Not a tail call
-          gu_ptr++;
-          gu_frames[gu_ptr].startTime_Mya = currentTime_Mya;
-          gu_frames[gu_ptr].factor = factor*exp(fMin);
-          gu_frames[gu_ptr].depth = depth + 1;
-          gu_frames[gu_ptr].ret = -1;
-          continue;
-        }
+  if (DEBUG) printf( "%f %f  %f %f %f %d\n", brownian_My, startTime_Mya, factor, speciation_My, extinction_My, depth);
+  
+  floating_t speciationOrExtinction_My = MIN(speciation_My, extinction_My);
+  
+  if (brownian_My < speciationOrExtinction_My && brownian_My < anagenetic_My) {
+    // handle brownian case
+    floating_t currentTime_Mya = startTime_Mya - brownian_My;
+
+    // I don't think we need to redraw GBM here, because it is what it is. Even if we redraw, so what?
+    if (currentTime_Mya < 0) {
+      bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
+      return undetected;
+    }
+    
+    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, DATA_CONST(stepSize), 0.0, DATA_CONST(stepSize));
+    return BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), depth + 1);
+  }
+  if (anagenetic_My < speciationOrExtinction_My && anagenetic_My < brownian_My) {
+    // Rare anagenesis comes first 
+    floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
+    if (currentTime_Mya < 0) {
+      bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
+      return undetected;
+    }
+
+    // We will make a GBM step also here, with time anagenetic_My, before recursion
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
+      factor = factor * exp(f);
+    }
+
+    // Let's draw the rare shift from the clads prior!
+    // TODO Variables names will have be refactored
+    floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+    return BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), depth + 1);
+  }
+  else { // speciation or extinction (CRBD)
+    floating_t currentTime_Mya = startTime_Mya - speciationOrExtinction_My;
+    
+    if (currentTime_Mya < 0) { // we are in the future, rho is the detection probability
+      bool undetected = !SAMPLE(bernoulli, DATA_CONST(rho));
+      return undetected;
+    }
+    
+    bool speciation =  (speciation_My < extinction_My) ? true : false;
+    bool extinction = !speciation;
+    if(extinction) {
+      return true;
+    }
+    
+    // Speciation
+    // CRBD case
+    floating_t fMin = 0.0;
+    floating_t fMax = 0.0;
+
+    // epsilon-correction for AnaDS-GBM (eps == speciation_My)
+    // the condition for AnaDS-GBM being on will be the step size being less than the tree age
+    // epsilon is exactly t 
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, speciation_My), 0.0, BBLOCK_CALL(safeTime, speciation_My));
+      factor = factor * exp(f);
+    }
+    
+    if (CLADS) { // cladogenetic change
+      floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+      floating_t f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+      if (NICOLAS) {
+	fMin = MIN(f1, f2);
+	fMax = MAX(f1, f2);
+	assert(fMin <= fMax);
       }
-    },
-    bool,
-    floating_t startTime_Mya,
-    floating_t factor,
-    int depth)
-    
-    
-    /* 
-    * simBranchReturn_t - return type
-    *
-    *   - floating_t factorEnd  the accumulated factors along the branch
-    *   - floating_t prob       the accumulated probability along the branch
-    */
-    struct simBranchReturn_t {
-      floating_t factorEnd;
-      floating_t prob;
-      
-      DEV simBranchReturn_t(){};
-      
-      DEV simBranchReturn_t(floating_t factorEnd_, floating_t prob_) {
-        factorEnd = factorEnd_;
-        prob = prob_;
+      else {
+      	fMin = f1;
+      	fMax = f2;
       }
-    };
+    }
     
-    /**
-    * simBranch
-    * Implemented as iteration
-    * 
-    * @param floating_t startTime_Mya Beginning of branch
-    * @param floating_t stopTime_Mya End of branch
-    * @param floating_t factor Factor add the beginning of the branch (multiplicative)
-    * @return simBranchReturn_t ret(factor, prob), where factor is the accummulated factor
-    *   at the end of branch, and prob is the accummulated probability at the end
-    *
-    * TODO Switch branches over to additive scale
-    * TODO Count cladogenetic vs anagenetic shifts
-    */
-    BBLOCK_HELPER(simBranch,
-      {
-        if(GUARD) {
-          if (factor > MAX_FACTOR) {
-            simBranchReturn_t ret(MAX_FACTOR, -INFINITY);
-            return ret;  
-          }
-          if (factor < MIN_FACTOR) {
-            simBranchReturn_t ret(MIN_FACTOR, -INFINITY);
-            return ret;
-          }
-        } 
-        
-        // Initialization
-        floating_t branchLength_My; // will need this after the loop
-        floating_t brownian_My = DATA_CONST(stepSize); // this is constant
-        floating_t extinctionProb = 0;
-        floating_t currentTime_Mya = startTime_Mya;
+    bool leftDetection = ! BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(fMin), depth + 1);
+    if (leftDetection) return false; // no need to descend to the right side of the tree
+    return BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(fMax),  depth + 1);
+  }
+ },
+	      bool,
+	      floating_t startTime_Mya,
+	      floating_t factor,
+	      int depth)
 
-        // Iteration
-        while(currentTime_Mya > stopTime_Mya) {
 
-          branchLength_My = startTime_Mya - stopTime_Mya;  
-          floating_t cladogenetic_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
+/* 
+ * simBranchReturn_t - return type
+ *
+ *   - floating_t factorEnd  the accumulated factors along the branch
+ *   - floating_t prob       the accumulated probability along the branch
+ */
+struct simBranchReturn_t {
+  floating_t factorEnd;
+  floating_t prob;
 
-          floating_t anagenetic_My =  INFINITY; // case 0
-          switch(ANADS) {
-            case 1:
-            anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
-            break;
-            case 2:
-            anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, factor);
-          }
+  DEV simBranchReturn_t(){};
+  
+  DEV simBranchReturn_t(floating_t factorEnd_, floating_t prob_) {
+    factorEnd = factorEnd_;
+    prob = prob_;
+  }
+};
 
-          // GBM
-          if (brownian_My < cladogenetic_My && brownian_My < anagenetic_My) {
-            currentTime_Mya = startTime_Mya - brownian_My; 
-            floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, brownian_My), 0.0, BBLOCK_CALL(safeTime, brownian_My));
-            
-            if(currentTime_Mya <= stopTime_Mya) continue;
+/* 
+ * TODO this one will have to count cladogenetic vs anagenetic shifts
+ * see slack message on how to do it
+ * simBranch - helper to simTree
+ * 
+ *  - has side-effects on arguments
+ *
+ */
+BBLOCK_HELPER(simBranch,
+{ 		   
+  if(GUARD) {
+    if (factor > MAX_FACTOR) {
+      simBranchReturn_t ret(MAX_FACTOR, -INFINITY);
+      return ret;  
+    }
+    if (factor < MIN_FACTOR) {
+      simBranchReturn_t ret(MIN_FACTOR, -INFINITY);
+      return ret;
+    }
+  }
 
-            // Compute the accummulated non-extinction probability
-            switch (EXTINCTION) {
-              case 1:
-              extinctionProb += gammaPoissonScore(0, brownian_My, PSTATE.mu_0, 1.0);
-              break;
-              case 2:
-              extinctionProb += gammaPoissonScore(0, brownian_My, PSTATE.mu_0, factor);
-            }
-            
-            // Process remainder of branch by iteration
-            factor *= exp(f1);
-            startTime_Mya = currentTime_Mya;
-            continue;
-            //simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f1));
-            //Now gather all weights and but DO NOT add 2 for the end of the branch
-            //there was no speciation (rotation) at currentTime_Mya, so no need to add 2!!!!
-            //simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
-            //return ret;
-          }
-          
-          if (anagenetic_My < cladogenetic_My && anagenetic_My < brownian_My) { // Rare Anagenetic shift
-            currentTime_Mya = startTime_Mya - anagenetic_My;
-            
-            if(currentTime_Mya <= stopTime_Mya) continue;
+  floating_t branchLength_My = startTime_Mya - stopTime_Mya;  
+  floating_t cladogenetic_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
+  floating_t brownian_My = DATA_CONST(stepSize);
+  floating_t anagenetic_My =  INFINITY; // case 0
 
-            // GBM Step before recursion
-            if (ANADS_GBM) {
-              floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
-              factor = factor * exp(f);
-            }
-            
-            // Rare shift, try alphaSigma
-            floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-            
-            switch (EXTINCTION) {
-              case 1:
-              extinctionProb += gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, 1.0);
-              break;
-              case 2:
-              extinctionProb += gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, factor);
-            }
-            
-            // Process remainder of branch by iteration
-            factor *= exp(f1);
-            startTime_Mya = currentTime_Mya;
-            continue;
-            //simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f1));
-            
-            // Now gather all weights and add 2 for the end of the branch
-            // we are not at branch end, so no need to add 2!!!!
-            //simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
-            //return ret;
-          }
-          
-          else {
-            //Cladogenetic or CRBD case
-            currentTime_Mya = startTime_Mya - cladogenetic_My;
-            
-            if(currentTime_Mya <= stopTime_Mya) continue;
+  switch(ANADS) {
+  case 1:
+    anagenetic_My =   SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
+    break;
+  case 2:
+    anagenetic_My =   SAMPLE(gammaExponential, PSTATE.nu_0, factor);
+  } 
 
-            // hidden speciation event CRBD case
-            floating_t f1 = 0.0;
-            floating_t f2 = 0.0;
-            
-            // There is a hidden speciation now, do a GBM Step!
-            if (ANADS_GBM) {
-              floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, cladogenetic_My), 0.0, BBLOCK_CALL(safeTime, cladogenetic_My));
-              factor = factor * exp(f);
-            }
-            
-            if (CLADS) {
-              // TODO count shifts, also in AnaDS case
-              f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-              f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-              // cannot swap here
-            }
-            
-            bool sideUndetected = BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), 0);
-            if(!sideUndetected) {
-              simBranchReturn_t ret(factor, -INFINITY);
-              return ret;
-            }
-            
-            // Extinction prob until the hidden speciation event
-            //floating_t extinctionProb = 0; // case 0
-            switch (EXTINCTION) {
-              case 1:
-              extinctionProb += gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, 1.0);
-              break;
-              case 2:
-              extinctionProb += gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, factor);
-            }
-            
-            // Handle remainder of branch
-            // Process remainder of branch by iteration
-            extinctionProb += log(2.0);
-            factor *= exp(f2);
-            startTime_Mya = currentTime_Mya;
-            continue;
-            //simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f2));
-            
-            // Add log(2.0) here for the location
-            //simBranchReturn_t ret(ret2.factorEnd, ret2.prob + log(2.0) + extinctionProb);
-            //return ret;
-          }
-        }
-        
-        // End
-        // Quickly! Redraw the factor, make a GBM step before the branch ends!
-        if (ANADS_GBM) {
-          floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
-          factor = factor * exp(f);
-        }
-        
-        switch (EXTINCTION) {
-          case 1:
-          extinctionProb += gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
-          break;
-          case 2:
-          extinctionProb += gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
-        }
-
-        simBranchReturn_t ret(factor, extinctionProb); // case 0
-
-        return ret;
-        
-      },
-      simBranchReturn_t,
-      floating_t startTime_Mya,
-      floating_t stopTime_Mya,
-      floating_t factor);
+  if (brownian_My < cladogenetic_My && brownian_My < anagenetic_My) { // step comes before observed speciation
+    floating_t currentTime_Mya = startTime_Mya - brownian_My; 
+    
+    if(currentTime_Mya <= stopTime_Mya) {
+      // Quickly! Redraw the factor, make a GBM step before the branch ends!
+      if (ANADS_GBM) {
+      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
+      	factor = factor * exp(f);
+      }
       
+      simBranchReturn_t ret(factor, 0); // case 0
+      switch (EXTINCTION) {
+      case 1:
+	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
+	break;
+      case 2:
+	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+      }
+      return ret;
+    }
+
+    // Make a "normal" GBM step
+    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, brownian_My), 0.0, BBLOCK_CALL(safeTime, brownian_My));
+
+    // Compute the accummulated non-extinction probability up to currentTime ->
+    // brownian_My here I think
+    floating_t extinctionProb = 0; // case 0
+    switch (EXTINCTION) {
+      case 1:
+	extinctionProb = gammaPoissonScore(0, brownian_My, PSTATE.mu_0, 1.0);
+	break;
+      case 2:
+	extinctionProb = gammaPoissonScore(0, brownian_My, PSTATE.mu_0, factor);
+      }
+
+    // Process remainder of branch by recursion
+    simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f1));
+    
+    // Now gather all weights and but DO NOT add 2 for the end of the branch
+    // there was no speciation (rotation) at currentTime_Mya, so no need to add 2!!!!
+    simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
+    return ret;
+  }
+  if (anagenetic_My < cladogenetic_My && anagenetic_My < brownian_My) { // Rare Anagenetic shift
+    floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
+    
+    if(currentTime_Mya <= stopTime_Mya) {
+      // redraw factor observed speciation
+      if (ANADS_GBM) {
+      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, branchLength_My, 0.0, branchLength_My);
+      	factor = factor * exp(f);
+      }
+       
+      simBranchReturn_t ret(factor, 0);
+      switch (EXTINCTION) {
+      case 1:
+	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
+	break;
+      case 2:
+	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+      }
+      return ret;
+    }
+
+    // GBM Step before recursion
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
+      factor = factor * exp(f);
+    }
+
+    // Rare shift, try alphaSigma
+    floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+  
+    floating_t extinctionProb = 0;
+    switch (EXTINCTION) {
+      case 1:
+	extinctionProb = gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, 1.0);
+	break;
+      case 2:
+	extinctionProb = gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, factor);
+      }
+    
+    simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f1));
+    
+    // Now gather all weights and add 2 for the end of the branch
+    // we are not at branch end, so no need to add 2!!!!
+    simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
+    return ret;
+  }
+  else { //Cladogenetic or CRBD case
+  
+    floating_t currentTime_Mya = startTime_Mya - cladogenetic_My;
+    
+    if(currentTime_Mya <= stopTime_Mya) {
+      // Quickly! Redraw the factor, make a GBM step before the branch ends!
+      if (ANADS_GBM) {
+	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
+	factor = factor * exp(f);
+      }
       
-      // BBLOCK(sampleFinalLambda, {
-        //     PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
-        //     PSTATE.mu0 = SAMPLE(gamma, PSTATE.mu_0.k, PSTATE.mu_0.theta);
-        //     PSTATE.nu0 = SAMPLE(gamma, PSTATE.nu_0.k, PSTATE.nu_0.theta);
-        //     // alphaSigma - struct with fields m0, v, a, b
-        //     // gamma - shape k and scale theta
-        //     // alphaSigma = NormalInverseGamma(0, 1.0, 1.0, 0.2)
-        //     floating_t sigmaSquared = 1.0 / (SAMPLE(gamma, PSTATE.alphaSigma.a, 1.0 / PSTATE.alphaSigma.b));
-        //     PSTATE.sigma = sigmaSquared; // sigma is actually sigma2
-        //     PSTATE.alpha = exp(SAMPLE(normal, PSTATE.alphaSigma.m0, PSTATE.sigma/PSTATE.alphaSigma.v));
-        
-        //     floating_t sigmaSquared_nu = 1.0 / SAMPLE(gamma, PSTATE.alphaSigma_gbm.a, 1.0 / PSTATE.alphaSigma_gbm.b);
-        //     PSTATE.sigma_nu = sqrt(sigmaSquared_nu);
-        //     PSTATE.alpha_nu = exp(SAMPLE(normal, PSTATE.alphaSigma_gbm.m0, PSTATE.sigma_nu/PSTATE.alphaSigma_gbm.v ));
-        
-        //     NEXT = NULL;
-        // })
-        
-        
-        // Should be equivalent to forward sampling
-        BBLOCK(conditionOnDetection, {
-          tree_t* treeP = DATA_POINTER(tree);
-          floating_t treeAge = treeP->ages[ROOT_IDX];
-          
-          int numSamples = 100;
-          int numDetected = 0;
-          for(int i = 0; i < numSamples; i++) {
-            bool undetected = BBLOCK_CALL(goesUndetected, treeAge, 1.0, 0.0);
-            if(! undetected)
+      simBranchReturn_t ret(factor, 0); // case 0
+      switch (EXTINCTION) {
+      case 1:
+	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
+	break;
+      case 2:
+	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+      }
+      return ret;
+    }
+    
+    // hidden speciation event CRBD case
+    floating_t f1 = 0.0;
+    floating_t f2 = 0.0;
+
+    // There is a hidden speciation now, do a GBM Step!
+    if (ANADS_GBM) {
+      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, cladogenetic_My), 0.0, BBLOCK_CALL(safeTime, cladogenetic_My));
+      factor = factor * exp(f);
+    }
+    
+    if (CLADS) {
+      // TODO count shifts, also in AnaDS case
+      f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+      f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+      // cannot swap here
+    }
+    
+    bool sideUndetected = BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), 0);
+    if(!sideUndetected) {
+      simBranchReturn_t ret(factor, -INFINITY);
+      return ret;
+    }
+
+    // Handle remainder of branch
+    simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f2));
+
+    // Extinction prob until the hidden speciation event
+    floating_t extinctionProb = 0; // case 0
+    switch (EXTINCTION) {
+    case 1:
+      extinctionProb = gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, 1.0);
+      break;
+    case 2:
+      extinctionProb = gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, factor);
+    }
+
+    // Add log(2.0) here for the location
+    simBranchReturn_t ret(ret2.factorEnd, ret2.prob + log(2.0) + extinctionProb);
+    return ret;
+  }
+},
+	      simBranchReturn_t,
+	      floating_t startTime_Mya,
+	      floating_t stopTime_Mya,
+	      floating_t factor);
+
+
+// BBLOCK(sampleFinalLambda, {
+//     PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
+//     PSTATE.mu0 = SAMPLE(gamma, PSTATE.mu_0.k, PSTATE.mu_0.theta);
+//     PSTATE.nu0 = SAMPLE(gamma, PSTATE.nu_0.k, PSTATE.nu_0.theta);
+//     // alphaSigma - struct with fields m0, v, a, b
+//     // gamma - shape k and scale theta
+//     // alphaSigma = NormalInverseGamma(0, 1.0, 1.0, 0.2)
+//     floating_t sigmaSquared = 1.0 / (SAMPLE(gamma, PSTATE.alphaSigma.a, 1.0 / PSTATE.alphaSigma.b));
+//     PSTATE.sigma = sigmaSquared; // sigma is actually sigma2
+//     PSTATE.alpha = exp(SAMPLE(normal, PSTATE.alphaSigma.m0, PSTATE.sigma/PSTATE.alphaSigma.v));
+
+//     floating_t sigmaSquared_nu = 1.0 / SAMPLE(gamma, PSTATE.alphaSigma_gbm.a, 1.0 / PSTATE.alphaSigma_gbm.b);
+//     PSTATE.sigma_nu = sqrt(sigmaSquared_nu);
+//     PSTATE.alpha_nu = exp(SAMPLE(normal, PSTATE.alphaSigma_gbm.m0, PSTATE.sigma_nu/PSTATE.alphaSigma_gbm.v ));
+
+//     NEXT = NULL;
+// })
+
+
+// Should be equivalent to forward sampling
+BBLOCK(conditionOnDetection, {
+    tree_t* treeP = DATA_POINTER(tree);
+    floating_t treeAge = treeP->ages[ROOT_IDX];
+
+    int numSamples = 100;
+    int numDetected = 0;
+    for(int i = 0; i < numSamples; i++) {
+      bool undetected = BBLOCK_CALL(goesUndetected, treeAge, 1.0, 0.0);
+        if(! undetected)
             numDetected++;
-          }
-          WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
-          NEXT = NULL;//sampleFinalLambda; // this was a probabilistic simulation, so resampling is needed
-          //BBLOCK_CALL(NEXT, NULL);
-        })
-        
-        
-        /*
-        * simTree - required
-        */
-        BBLOCK(simTree,
-          {
-            tree_t* treeP = DATA_POINTER(tree);
-            treeIdx_t treeIdx = PSTATE.treeIdx; // During first invocation it goes left from root
-            int indexParent = treeP->idxParent[treeIdx];
-            
-            if (DEBUG) {
-              printf("Processing node %d\n", PSTATE.treeIdx);
-            }
-            
-            // Terminate if tree is fully traversed
-            if(treeIdx == -1) {
-              //NEXT = NULL;
-              NEXT = conditionOnDetection; // no resampling needed here, tree has been traversed
-              BBLOCK_CALL(NEXT, NULL);
-              return;
-            }
-            
-            PSTATE.treeIdx = treeP->idxNext[treeIdx]; // advance
-            
-            // Branch simulation
-            simBranchReturn_t ret =
-            BBLOCK_CALL(simBranch,
-              treeP->ages[indexParent], // parent age
-              treeP->ages[treeIdx],     // node age
-              PSTATE.factors[treeIdx]   // factor at the beginning of the branch
-            ); 
-            
-            floating_t factorEnd = ret.factorEnd;
-            floating_t accummulatedProbability = ret.prob;
-            
-            bool interiorNode = treeP->idxLeft[treeIdx] != -1 || treeP->idxRight[treeIdx] != -1;
-            //printf("factorEnd  %f lambda_0 %f\n", factorEnd, PSTATE.lambda_0);
-            floating_t lnTerminalProb = interiorNode ? gammaExponentialScore(0, PSTATE.lambda_0, factorEnd) : log(DATA_CONST(rho));
-            
-            WEIGHT(accummulatedProbability + lnTerminalProb);
-            
-            // Split simulation
-            if(interiorNode) {
-              // CRBD case
-              floating_t f1 = 0.0;
-              floating_t f2 = 0.0;
-              
-              if (CLADS) {
-                f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-                f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-              }
-              
-              floating_t leftFactorEnd = factorEnd*exp(f1);
-              floating_t rightFactorEnd = factorEnd*exp(f2);
-              
-              PSTATE.factors[treeP->idxLeft[treeIdx]] = leftFactorEnd;
-              PSTATE.factors[treeP->idxRight[treeIdx]] = rightFactorEnd;
-            } 
-          })
-          
-          
-          /*
-          * simCombineDS - required BBLOCK
-          */
-          BBLOCK(simCombineDS,
-            {
-              // Set up tree traversal
-              tree_t* treeP = DATA_POINTER(tree);
-              PSTATE.treeIdx = treeP->idxLeft[ROOT_IDX];
-              
-              // Correction factor
-              int numLeaves = countLeaves(treeP->idxLeft, treeP->idxRight, treeP->NUM_NODES);
-              floating_t corrFactor = (numLeaves - 1) * log(2.0) - lnFactorial(numLeaves);
-              WEIGHT(corrFactor);
-              
-              // CRBD case
-              floating_t f1 = 0.0;
-              floating_t f2 = 0.0;
-              
-              if (CLADS) {
-                f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-                f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-              }
-              
-              floating_t leftFactor = 1.0 * exp(f1);
-              floating_t rightFactor = 1.0 * exp(f2);
-              
-              // The factors that are saved are the total accumulated factors
-              PSTATE.factors[PSTATE.treeIdx] = leftFactor; // same as left of root, treeP->idxLeft[ROOT_IDX]
-              PSTATE.factors[treeP->idxRight[ROOT_IDX]] = rightFactor;
-              
-              NEXT = simTree;
-              BBLOCK_CALL(NEXT, NULL);
-            })
-            
-            
-            /*
-            * can be used on the GPU
-            */
-            int adiscrete(const floating_t* ps, const int n) {
-              //floating_t u = SAMPLE(uniform, 0, 1);    // replace this with c++ std library uniform
-              //std::default_random_engine generator;
-              std::random_device rd;
-              std::mt19937 generator(rd());
-              std::uniform_real_distribution<double> distribution(0.0,1.0);
-              floating_t u = distribution(generator);
-              floating_t sum = 0;    
-              int idx = 0;    
-              for(idx = 0; idx < n-1; idx++) {        
-                sum += ps[idx];        
-                if(u <= sum)            
-                break;    
-              }    
-              return idx;
-            }
-            
-            
-            CALLBACK(saveResultsFile, {
-              std::string headerFileName = "results/" + analysisName + "_header.csv";
-              std::ofstream headerFile (headerFileName, std::ios_base::app);
-              if (headerFile.is_open()) {
-                //headerFile << "lambda0, mu0, nu0, alpha, sigma2, alpha_nu, sigma_nu2, m0, b, m0_nu, b_nu" << std::endl;
-                headerFile << "lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta, alphaSigma.m0, alphaSigma.v, alphaSigma.a, alphaSigma.b, alphaSigma_gbm.m0, alphaSigma_gbm.v, alphaSigma_gbm.a, alphaSigma_gbm.b" << std::endl;
-                headerFile.close();
-              }
-              std::string resultsFileName = "results/" + analysisName + ".csv";
-              std::ofstream resultsFile (resultsFileName, std::ios_base::app);
-              if (resultsFile.is_open()) {
-                floating_t maxWeight = WEIGHTS[0];
-                for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
-                /* Use the weights to choose the subsample in a numerically stable way. */
-                floating_t probs[N]; 
-                for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
-                for (int j = 0; j < M; j++) {
-                  //int k = SAMPLE(discrete, probs, N); doesn't work on GPU
-                  int k = adiscrete(probs, N);
-                  resultsFile << PSTATES[k].lambda_0.k << ", "
-                  << PSTATES[k].lambda_0.theta << ", "
-                  << PSTATES[k].mu_0.k << ", "
-                  << PSTATES[k].mu_0.theta << ", "
-                  << PSTATES[k].nu_0.k << ", "
-                  << PSTATES[k].nu_0.theta << ", "
-                  << PSTATES[k].alphaSigma.m0 << ", "
-                  << PSTATES[k].alphaSigma.v << ", "
-                  << PSTATES[k].alphaSigma.a << ", "
-                  << PSTATES[k].alphaSigma.b << ", "
-                  << PSTATES[k].alphaSigma_gbm.m0 << ", "
-                  << PSTATES[k].alphaSigma_gbm.v << ", "
-                  << PSTATES[k].alphaSigma_gbm.a << ", "
-                  << PSTATES[k].alphaSigma_gbm.b <<
-                  std::endl;
-                  
-                }
-                resultsFile.close();
-              }
-            })
-            
-            
-            BBLOCK(initialization, {
-              // Priors
-              PSTATE.lambda_0 = gamma_t(__(3)__, __(4)__);
-              PSTATE.mu_0 = gamma_t(__(5)__, __(6)__);
-              PSTATE.nu_0 = gamma_t(__(7)__, __(8)__);
-              PSTATE.alphaSigma = normalInverseGamma_t(__(9)__, __(10)__, __(11)__, __(12)__);
-              PSTATE.alphaSigma_gbm = normalInverseGamma_t(__(13)__, __(14)__, __(15)__, __(16)__);
-              
-              NEXT = simCombineDS;
-              BBLOCK_CALL(NEXT, NULL);
-            })
-            
-            
-            MAIN({
-              FIRST_BBLOCK(initialization);
-              //SMC(NULL)
-              SMC(saveResultsFile);
-            })
-            
-            
+    }
+    WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
+    NEXT = NULL;//sampleFinalLambda; // this was a probabilistic simulation, so resampling is needed
+    //BBLOCK_CALL(NEXT, NULL);
+})
+
+
+/*
+ * simTree - required
+ */
+BBLOCK(simTree,
+{
+  tree_t* treeP = DATA_POINTER(tree);
+  treeIdx_t treeIdx = PSTATE.treeIdx; // During first invocation it goes left from root
+  int indexParent = treeP->idxParent[treeIdx];
+
+  if (DEBUG) {
+    printf("Processing node %d\n", PSTATE.treeIdx);
+  }
+  
+  // Terminate if tree is fully traversed
+  if(treeIdx == -1) {
+    //NEXT = NULL;
+    NEXT = conditionOnDetection; // no resampling needed here, tree has been traversed
+    BBLOCK_CALL(NEXT, NULL);
+    return;
+  }
+  
+  PSTATE.treeIdx = treeP->idxNext[treeIdx]; // advance
+  
+  // Branch simulation
+  simBranchReturn_t ret =
+      BBLOCK_CALL(simBranch,
+		  treeP->ages[indexParent], // parent age
+		  treeP->ages[treeIdx],     // node age
+		  PSTATE.factors[treeIdx]   // factor at the beginning of the branch
+		); 
+  
+  floating_t factorEnd = ret.factorEnd;
+  floating_t accummulatedProbability = ret.prob;
+     
+  bool interiorNode = treeP->idxLeft[treeIdx] != -1 || treeP->idxRight[treeIdx] != -1;
+  floating_t lnTerminalProb = interiorNode ? gammaExponentialScore(0, PSTATE.lambda_0, factorEnd) : log(DATA_CONST(rho));
+  
+  WEIGHT(accummulatedProbability + lnTerminalProb);
+
+  // Split simulation
+  if(interiorNode) {
+    // CRBD case
+    floating_t f1 = 0.0;
+    floating_t f2 = 0.0;
+
+    if (CLADS) {
+      f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+      f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+    }
+
+    floating_t leftFactorEnd = factorEnd*exp(f1);
+    floating_t rightFactorEnd = factorEnd*exp(f2);
+    
+    PSTATE.factors[treeP->idxLeft[treeIdx]] = leftFactorEnd;
+    PSTATE.factors[treeP->idxRight[treeIdx]] = rightFactorEnd;
+  } 
+})
+
+
+/*
+ * simCombineDS - required BBLOCK
+ */
+BBLOCK(simCombineDS,
+{
+  // Set up tree traversal
+  tree_t* treeP = DATA_POINTER(tree);
+  PSTATE.treeIdx = treeP->idxLeft[ROOT_IDX];
+    
+  // Correction factor
+  int numLeaves = countLeaves(treeP->idxLeft, treeP->idxRight, treeP->NUM_NODES);
+  floating_t corrFactor = (numLeaves - 1) * log(2.0) - lnFactorial(numLeaves);
+  WEIGHT(corrFactor);
+
+  // CRBD case
+  floating_t f1 = 0.0;
+  floating_t f2 = 0.0;
+  
+  if (CLADS) {
+    f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+    f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+  }
+  
+  floating_t leftFactor = 1.0 * exp(f1);
+  floating_t rightFactor = 1.0 * exp(f2);
+    
+  // The factors that are saved are the total accumulated factors
+  PSTATE.factors[PSTATE.treeIdx] = leftFactor; // same as left of root, treeP->idxLeft[ROOT_IDX]
+  PSTATE.factors[treeP->idxRight[ROOT_IDX]] = rightFactor;
+      
+  NEXT = simTree;
+  BBLOCK_CALL(NEXT, NULL);
+ })
+
+
+/*
+ * can be used on the GPU
+ */
+int adiscrete(const floating_t* ps, const int n) {
+  //floating_t u = SAMPLE(uniform, 0, 1);    // replace this with c++ std library uniform
+  //std::default_random_engine generator;
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::uniform_real_distribution<double> distribution(0.0,1.0);
+  floating_t u = distribution(generator);
+  floating_t sum = 0;    
+  int idx = 0;    
+  for(idx = 0; idx < n-1; idx++) {        
+    sum += ps[idx];        
+    if(u <= sum)            
+      break;    
+  }    
+  return idx;
+}
+ 
+
+CALLBACK(saveResultsFile, {
+    std::string headerFileName = "results/" + analysisName + "_header.csv";
+    std::ofstream headerFile (headerFileName, std::ios_base::app);
+    if (headerFile.is_open()) {
+      //headerFile << "lambda0, mu0, nu0, alpha, sigma2, alpha_nu, sigma_nu2, m0, b, m0_nu, b_nu" << std::endl;
+      headerFile << "lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta, alphaSigma.m0, alphaSigma.v, alphaSigma.a, alphaSigma.b, alphaSigma_gbm.m0, alphaSigma_gbm.v, alphaSigma_gbm.a, alphaSigma_gbm.b" << std::endl;
+      headerFile.close();
+    }
+    std::string resultsFileName = "results/" + analysisName + ".csv";
+    std::ofstream resultsFile (resultsFileName, std::ios_base::app);
+    if (resultsFile.is_open()) {
+      floating_t maxWeight = WEIGHTS[0];
+      for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
+      /* Use the weights to choose the subsample in a numerically stable way. */
+      floating_t probs[N]; 
+      for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
+      for (int j = 0; j < M; j++) {
+	//int k = SAMPLE(discrete, probs, N); doesn't work on GPU
+	int k = adiscrete(probs, N);
+	resultsFile << PSTATES[k].lambda_0.k << ", "
+		    << PSTATES[k].lambda_0.theta << ", "
+		    << PSTATES[k].mu_0.k << ", "
+		    << PSTATES[k].mu_0.theta << ", "
+		    << PSTATES[k].nu_0.k << ", "
+		    << PSTATES[k].nu_0.theta << ", "
+	            << PSTATES[k].alphaSigma.m0 << ", "
+		    << PSTATES[k].alphaSigma.v << ", "
+		    << PSTATES[k].alphaSigma.a << ", "
+		    << PSTATES[k].alphaSigma.b << ", "
+		    << PSTATES[k].alphaSigma_gbm.m0 << ", "
+    		    << PSTATES[k].alphaSigma_gbm.v << ", "
+		    << PSTATES[k].alphaSigma_gbm.a << ", "
+    		    << PSTATES[k].alphaSigma_gbm.b <<
+		    std::endl;
+
+      }
+      resultsFile.close();
+    }
+  })
+
+
+BBLOCK(initialization, {
+    // Priors
+    PSTATE.lambda_0 = gamma_t(__(3)__, __(4)__);
+    PSTATE.mu_0 = gamma_t(__(5)__, __(6)__);
+    PSTATE.nu_0 = gamma_t(__(7)__, __(8)__);
+    PSTATE.alphaSigma = normalInverseGamma_t(__(9)__, __(10)__, __(11)__, __(12)__);
+    PSTATE.alphaSigma_gbm = normalInverseGamma_t(__(13)__, __(14)__, __(15)__, __(16)__);
+    
+    NEXT = simCombineDS;
+    BBLOCK_CALL(NEXT, NULL);
+})
+
+
+MAIN({
+    FIRST_BBLOCK(initialization);
+    //SMC(NULL)
+    SMC(saveResultsFile);
+})
+
