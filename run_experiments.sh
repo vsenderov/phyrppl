@@ -1,104 +1,107 @@
 #!/bin/bash
-#
-#SBATCH -J CLDS2Anatinae
-#SBATCH -t 7-00:00:00
-#SBATCH -N 1
+
+#SBATCH -J Anatinae                         
+#SBATCH -t 7-00:00:00                       
+#SBATCH -N 1                                
 #SBATCH --mem 64000
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=viktor.senderov@nrm.se
-#
 
 ulimit -s unlimited
 export OMP_STACKSIZE=" 32G" 
 
 #module load buildenv-intel/2018a-eb
 
- #*     __(1)__ - tree
- #*     __(2)__ - rho
- #*     __(3)__ - lamdba0 shape
- #*     __(4)__ - lambda0 scale
- #*     __(5)__ - mu0 shape
- #*     __(6)__ - mu0 scale
- #*     __(7)__ - nu0 scape
- #*     __(8)__ - nu0 scale
- #*     __(9)__ - alpha, sigma - 1st param
- #*     __(10)__ - alpha, sigma - 2nd param
- #*     __(11)__ - alpha, sigma - 3nd param
- #*     __(12)__ - alpha, sigma - 4nd param
- #*     __(13)__ - alpha, sigma - 1st param (GBM)
- #*     __(14)__ - alpha, sigma - 2nd param (GBM)
- #*     __(15)__ - alpha, sigma - 3nd param (GBM)
- #*     __(16)__ - alpha, sigma - 4nd param (GBM)
- #*     __(17)__ - clads (true/false)
- #*     __(18)__ - extinction level
- #*     __(19)__ - anads level
- #*     __(20)__ - STEP_SIZE
- #*     __(21)__ - DEPTH
- #*
+#*     __(1)__  - tree
+#*     __(2)__  - rho
+#*     __(3)__  - lamdba0 shape (Speciation)
+#*     __(4)__  - lambda0 scale
+#*     __(5)__  - mu0 shape     (Exctinction)
+#*     __(6)__  - mu0 scale
+#*     __(7)__  - nu0 scape     (Anagenesis)
+#*     __(8)__  - nu0 scale
+#*     __(9)__  - alpha, sigma - 1st param (ClaDS or LS)
+#*     __(10)__ - alpha, sigma - 2nd param (ClaDS or LS)
+#*     __(11)__ - alpha, sigma - 3nd param (ClaDS or LS)
+#*     __(12)__ - alpha, sigma - 4nd param (ClaDS or LS)
+#*     __(13)__ - alpha, sigma - 1st param (GBM)
+#*     __(14)__ - alpha, sigma - 2nd param (GBM)
+#*     __(15)__ - alpha, sigma - 3nd param (GBM)
+#*     __(16)__ - alpha, sigma - 4nd param (GBM)
+#*     __(17)__ - clads (true/false)
+#*     __(18)__ - extinction level
+#*     __(19)__ - anads level
+#*     __(20)__ - STEP_SIZE
+#*     __(21)__ - DEPTH
 
-# viktor 2022-06-03
-# The purpose of this experiment is to rerun the 4 bird trees (finally, hopefully)
-# with 0.05 step size, 500 depth, and the _correct_ priors.
-# We're running only 100 iterations, though, hopefully this will be correct.
-# 2022-06-12 - 100 iterations not enough, running another 100 + 200 for clads (lambda0 estimates based only on 100 iterations though)
-# 2022-07-03: trying with CUDA now. Depth has to be adjusted accordningly.
+# This is a template file to set up an experiment.
+# viktor 2022-08-09
+# EXPERIMENT DESCRIPTION COMES HERE
+# - one large shift per tree
+# - the variance of the cummulative GBM multiplier is set to 1.0 (IG(3,2/AGE)
+# - the ClaDS variance needs to computed from the lambda0 estimate for GBM,
+#   so that it is comparable to the GBM variance. I.e. if ^lambda0 = 1.0,
+#   then no change needed.
+# - LS variance same unscaled GBM variance
 
-#### Anatinae age = 20.27
+MODEL=CombineDS   # CombineDS is the version that uses recursion, i.e. _not_ CUDA optimized
+TREE=Anatinae
+AGE=20.27
+RHO=0.87
+L0EST0=0.21583704337743892
+L0EST2=0.42588624478199844
 
-#export RPPL_FLAGS=" --target sm_75 -j 28"
-export RPPL_FLAGS=" --target omp -j 4"
+NCORES=28
+PART=5000
+ITER=5
 
-# CRBD
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 20000 5 28 1 crbd
+LSH=1.0
+LSC=1.0
+MSH=1.0
+MSC=0.5
+NSH=1.0
+NSC=1.0                # Base rate, will rescale
+C1=0.0
+C2=1.0
+C3=3.0
+C4=2.0                 # Base rate, will rescale
+G1=0.0
+G2=1.0
+G3=3.0
+G4=2.0                 # Base rate, will rescale 
 
-# Anads-GBM.[0-2]
+STEP=0.1
+GUA=`echo "scale = 2; 2.0 / $STEP" | bc`              # Base rate, will rescale
 
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 500 20000 5 28 1 anadsGBM0
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 500 20000 5 28 1 anadsGBM2
+#export RPPL_FLAGS=" --target sm_75 -j $NCORES" # CUDA
+export RPPL_FLAGS=" --target omp -j $NCORES"    # OMP
+
+# CRBD                                                              (-ClaDS/rare--) (-GBM---------) ClDS? E A Step GUA PART  I     CP      Th Name
+NSCN=`echo "scale = 2; $NSC / $AGE" | bc`
+GUAN=`echo "$GUA*$AGE" | bc | awk '{print int($1+0.5)}'`
+./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4 false 1 0 9999 500 $PART $ITER $NCORES 1 crbd
+#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4 false 1 0 9999 $GUAN $PART $ITER $NCORES 1 crbd
+
+# Anads-GBM.[0-2]                                                   (-ClaDS/rare--) (-GBM--------------) ClDS? E A Step  GUA PART  I     CP      Th Name
+G4N=`echo "scale = 2; $G4/$AGE" | bc`
+#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM0
+#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM2
+echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM0
+echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM2
+
+# Rare shifts (const nu) on top of AnaDS[0,2]
+#                                                                 (--ClaDS/rare-) (-GBM----------------) ClD?  E A  Step  GUA       PART  I     CP      Th Name
+./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS0
+./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS2
+#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS0
+#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS2
 
 # ClaDS.[0-2] lambda0 GBM0 ~ 0.1/0.21583704337743892 = 0.4633125; GBM2 ~ 0.1/0.42588624478199844 = 0.2348045
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.46 true 0 0 9999 500 20000 5 28 1 clads0
-#./runppl.sh CombineDS Anatinae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.23 true 2 0 9999 500 20000 5 28 1 clads2
 
-#### Alcedinidae age ~ 35
-
-# CRBD
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 700 20000 5 28 1 crbd
-
-# Anads-GBM.[0-2]
-
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 700 20000 5 28 1 anadsGBM0
-#./runppl.sh CombineDS Alcedinidae 0.57 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 700 20000 5 28 1 anadsGBM2
-
-# ClaDS.[0,2] lambda0 GBM0 ~ 0.1/0.13277552908064916 = 0.7531508; GBM2 ~ 0.1/0.3480547165639467 = 0.2873111
-#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.67 0 1.0 3.0 0.75 true 0 0 9999 700 20000 5 28 1 clads0
-#./runppl.sh CombineDS Alcedinidae 0.87 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.25 0 1.0 3.0 0.29 true 2 0 9999 700 20000 5 28 1 clads2
-
-#### M6 age ~ 20
-
-# CRBD
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 500 20000 5 28 1 crbd
-
-# Anads-GBM.[0-2]
-
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 500 20000 5 28 1 anadsGBM0
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 500 20000 5 28 1 anadsGBM2
-
-# ClaDS[0,2]. GBM0: lambda0 ~ 0.1/0.8158907158351305=0.1225654; GBM2 ~ 0.1/1.0942973023640103 =  0.09138284
-#./runppl.sh CombineDS M6 0.77 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.12 0 1.0 3.0 0.12 true 0 0 9999 500 20000 5 28 1 clads0
-#./runppl.sh CombineDS M6 0.7 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.09 0 1.0 3.0 0.09 true 2 0 9999 500 20000 5 28 1 clads2
-
-#### Accipitridae age ~ 60
-
-# CRBD
-./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 1 0 9999 1200 10000 20 28 1 crbd
-
-# Anads-GBM.[0-2]
-
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 0 0 0.1 1200 10000 20 28 1 anadsGBM0
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.5 0 1.0 3.0 0.1 false 2 0 0.1 1200 10000 20 28 1 anadsGBM2
-
-# ClaDS[0,2] lambda0 GBM0 ~ 0.1/0.12418703233897882 = 0.8052371 GBM2 ~ 0.1/0.21113466629524846 =  0.4736314
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.83 0 1.0 3.0 0.81 true 0 0 9999 1200 10000 20 28 1 clads0
-#./runppl.sh CombineDS Accipitridae 0.71 1.0 1.0 1.0 0.5 1.0 1.0 0 1.0 3.0 0.55 0 1.0 3.0 0.47 true 2 0 9999 1200 10000 20 28 1 clads2
-
+C4N0=`echo "scale = 2; $C4 / $AGE / $L0EST0" | bc`
+C4N2=`echo "scale = 2; $C4 / $AGE / $L0EST2" | bc`
+#                                                                   (-ClaDS/rare---------------) (-GBM---------------) ClD? E A Step GUA       PART  I     CP      Th Name
+./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN $PART $ITER $NCORES 1 clads0
+./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN $PART $ITER $NCORES 1 clads2
+#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN $PART $ITER $NCORES 1 clads0
+#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN $PART $ITER $NCORES 1 clads2
