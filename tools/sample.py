@@ -46,6 +46,7 @@ r = row(data)
 print(json.dumps(    {
     'lambda': sample(r, gamma, {'a': 'lambda_0.k', 'scale': 'lambda_0.theta'}),
     'mu': sample(r, gamma, {'a': 'mu_0.k', 'scale': 'mu_0.theta'}),
+    'nu': sample(r, gamma, {'a': 'nu_0.k', 'scale': 'nu_0.theta'}),
     'log_α_gbm': sample(r, "normal_inverse_gamma_v", {'μ': 'alphaSigma_gbm.m0', 'v': 'alphaSigma_gbm.v', 'α': 'alphaSigma_gbm.a', 'β': 'alphaSigma_gbm.b'}),
     'sigma2_gbm': sample(r, invgamma, {'a': 'alphaSigma_gbm.a', 'scale': 'alphaSigma_gbm.b'}),
     'log_α': sample(r, "normal_inverse_gamma_v", {'μ': 'alphaSigma.m0', 'v': 'alphaSigma.v', 'α': 'alphaSigma.a', 'β': 'alphaSigma.b'}),
