@@ -2,8 +2,11 @@
 
 ## Changelog
 
+### v0.7.2
+Included the bird supetree as a possible dataset
+
 ### v0.7.1
-Frameworo supports the rare large shift model now.
+Framework supports the rare large shift model now.
 
 ### v0.7.0
 Major update - CombinDS can now run on CUDA as recursion is replaced by iteration.

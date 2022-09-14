@@ -47,6 +47,7 @@
 #include "../trees/cetaceans.cuh"
 #include "../trees/birds.cuh"
 #include "../trees/default_trees.cuh"
+#include "../trees/bird_go.cuh"
 
 #define CLADS __(17)__              // Cladogenetic changes
 #define ANADS __(19)__              // Anagenetic changes
@@ -288,7 +289,18 @@ BBLOCK_HELPER(simBranch,
     }
   }
 
-  floating_t branchLength_My = startTime_Mya - stopTime_Mya;  
+  floating_t branchLength_My = startTime_Mya - stopTime_Mya;
+
+  // 2022-09-14 vsenderov A patch (10x Jan) working around
+  // an issue that can arise when generating an MCC tree with something like
+  // BEAST; we get negative branch lengths; simply ignore the branch.
+  if (branchLength_My <= 0)
+  {
+    simBranchReturn_t ret(factor, 0.0);
+    return ret;
+  }
+  assert(0 < branchLength_My);
+
   floating_t cladogenetic_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
   floating_t brownian_My = DATA_CONST(stepSize);
   floating_t anagenetic_My =  INFINITY; // case 0

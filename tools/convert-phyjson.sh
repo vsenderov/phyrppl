@@ -21,7 +21,7 @@ echo "#ifndef $OUTPUT
 
 for t in $trees
 do
-    node tree-parser.js $JSONDIR/$t $t >> $OUTPUT.cuh
+    node --stack-size=4096 tree-parser.js $JSONDIR/$t $t >> $OUTPUT.cuh
 done
 
 	 
