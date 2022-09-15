@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.7.3
+We support an additional argument whether or not to print the factors
+along the tree.
+
 ### v0.7.2
 Included the bird supetree as a possible dataset
 
