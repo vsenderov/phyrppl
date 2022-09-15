@@ -35,17 +35,18 @@ export OMP_STACKSIZE=" 32G"
 #*     __(19)__ - anads level
 #*     __(20)__ - STEP_SIZE
 #*     __(21)__ - DEPTH
+#*     __(22)__ - dump factors (true/false)
 
 MODEL=CombineDS   # CombineDS is the version that uses recursion, i.e. _not_ CUDA optimized
-TREE=CC4
-AGE=30.061
+TREE=Anatinae
+AGE=20
 RHO=0.85
 L0EST0=0.20
 L0EST2=0.40
 
 NCORES=28
-PART=20000
-ITER=3
+PART=1000
+ITER=2
 
 LSH=1.0
 LSC=1.0
@@ -69,42 +70,42 @@ GUA=`echo "scale = 2; 2.0 / $STEP" | bc`              # Base rate, will rescale
 export RPPL_FLAGS=" --target omp -j $NCORES"    # OMP
 cd ..
 
-# CRBD                                                              (-ClaDS/rare--) (-GBM---------) ClDS? E A Step GUA PART  I     CP      Th Name
+# CRBD                                                              (-ClaDS/rare--) (-GBM---------) ClDS? E A Step GUA Factors? PART  I     CP      Th Name
 NSCN=`echo "scale = 2; $NSC / $AGE" | bc`
 GUAN=`echo "$GUA*$AGE" | bc | awk '{print int($1+0.5)}'`
-./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4 false 1 0 9999 500 $PART $ITER $NCORES 1 crbd
-echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4 false 1 0 9999 $GUAN $PART $ITER $NCORES 1 crbd
+./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4 false 1 0 9999 $GUAN false $PART $ITER $NCORES 1 crbd 
+echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4 false 1 0 9999 $GUAN false $PART $ITER $NCORES 1 crbd 
 
-# Anads-GBM.[0-2]                                                   (-ClaDS/rare--) (-GBM--------------) ClDS? E A Step  GUA PART  I     CP      Th Name
-#G4N=`echo "scale = 2; $G4/$AGE" | bc`
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM0
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM2
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM0
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM2
+# Anads-GBM.[0-2]                                                   (-ClaDS/rare--) (-GBM--------------) ClDS? E A Step  GUA Factors? PART  I     CP      Th Name
+# G4N=`echo "scale = 2; $G4/$AGE" | bc`
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 0 $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM0 
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 0 $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM2 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 0 $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM0 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 0 $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM2 
 
-# AnaDS-GBM+LS Rare shifts (const nu) on top of AnaDS[0,2]
-#                                                                 (--ClaDS/rare-) (-GBM----------------) ClD?  E A  Step  GUA       PART  I     CP      Th Name
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS0
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS2
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS0
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 1  $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-LS2
+# # AnaDS-GBM+LS Rare shifts (const nu) on top of AnaDS[0,2]
+# #                                                                 (--ClaDS/rare-) (-GBM----------------) ClD?  E A  Step  GUA   Factors?    PART  I     CP      Th Name
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 1  $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM-LS0 
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 1  $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM-LS2 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 0 1  $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM-LS0 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4 $G1 $G2 $G3 $G4N false 2 1  $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM-LS2 
 
-# ClaDS.[0-2] lambda0 GBM0 ~ 0.1/0.21583704337743892 = 0.4633125; GBM2 ~ 0.1/0.42588624478199844 = 0.2348045
+# # ClaDS.[0-2] lambda0 GBM0 ~ 0.1/0.21583704337743892 = 0.4633125; GBM2 ~ 0.1/0.42588624478199844 = 0.2348045
 
-#C4N0=`echo "scale = 2; $C4 / $AGE / $L0EST0" | bc`
-#C4N2=`echo "scale = 2; $C4 / $AGE / $L0EST2" | bc`
-#                                                                   (-ClaDS/rare---------------) (-GBM---------------) ClD? E A Step GUA       PART  I     CP      Th Name
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN $PART $ITER $NCORES 1 clads0
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN $PART $ITER $NCORES 1 clads2
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN $PART $ITER $NCORES 1 clads0
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN $PART $ITER $NCORES 1 clads2
+# C4N0=`echo "scale = 2; $C4 / $AGE / $L0EST0" | bc`
+# C4N2=`echo "scale = 2; $C4 / $AGE / $L0EST2" | bc`
+# #                                                                   (-ClaDS/rare---------------) (-GBM---------------) ClD? E A Step GUA Factors?      PART  I     CP      Th Name
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN true $PART $ITER $NCORES 1 clads0 
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN true $PART $ITER $NCORES 1 clads2 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN true $PART $ITER $NCORES 1 clads0 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN true $PART $ITER $NCORES 1 clads2 
 
-# AnaDS-GBM+ClaDS.[0-2] lambda0 GBM0 ~ 0.1/0.21583704337743892 = 0.4633125; GBM2 ~ 0.1/0.42588624478199844 = 0.2348045
+# # AnaDS-GBM+ClaDS.[0-2] 
 
-#C4N0=`echo "scale = 2; $C4 / $AGE / $L0EST0" | bc`
-#C4N2=`echo "scale = 2; $C4 / $AGE / $L0EST2" | bc`
-#                                                                   (-ClaDS/rare---------------) (-GBM---------------) ClD? E A Step GUA       PART  I     CP      Th Name
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-clads0
-#./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 $STEP $GUAN $PART $ITER $NCORES 1 anadsGBM-clads2
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN $PART $ITER $NCORES 1 clads0
-#echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN $PART $ITER $NCORES 1 clads2
+# C4N0=`echo "scale = 2; $C4 / $AGE / $L0EST0" | bc`
+# C4N2=`echo "scale = 2; $C4 / $AGE / $L0EST2" | bc`
+# #                                                                   (-ClaDS/rare---------------) (-GBM---------------) ClD? E A Step GUA  Factors?     PART  I     CP      Th Name
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM-clads0 
+# ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 $STEP $GUAN true $PART $ITER $NCORES 1 anadsGBM-clads2 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N0 $G1 $G2 $G3 $G4N true 0 0 9999 $GUAN true $PART $ITER $NCORES 1 clads0 
+# echo ./runppl.sh $MODEL $TREE $RHO $LSH $LSC $MSH $MSC $NSH $NSCN $C1 $C2 $C3 $C4N2 $G1 $G2 $G3 $G4N true 2 0 9999 $GUAN true $PART $ITER $NCORES 1 clads2 

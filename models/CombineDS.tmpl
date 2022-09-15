@@ -28,6 +28,7 @@
  *     __(19)__ - stochastic level (0 - none, 1 - const, 2 - turnover to lambda const)/ rare shifts
  *     __(20)__ - step size for AnaDS-GBM
  *     __(21)__ - maximum recursion depth allowed in side-branch simulations
+ *     __(22)__ - whether to dump factors
  * 
  */
 
@@ -63,6 +64,7 @@
 #define MAX_DEPTH __(21)__
 #define M 20  // Number of subsamples to draw
 #define DEBUG false
+#define FACTORS __(22)__
 
 // The GBM model is only active if the step size is smaller than the tree age.
 #define ANADS_GBM (DATA_POINTER(tree)->ages[ROOT_IDX] > DATA_CONST(stepSize))
@@ -513,6 +515,7 @@ BBLOCK(conditionOnDetection, {
  */
 BBLOCK(simTree,
 {
+  assert(FACTORS < 2);
   tree_t* treeP = DATA_POINTER(tree);
   treeIdx_t treeIdx = PSTATE.treeIdx; // During first invocation it goes left from root
   int indexParent = treeP->idxParent[treeIdx];
@@ -621,48 +624,59 @@ int adiscrete(const floating_t* ps, const int n) {
   }    
   return idx;
 }
- 
 
-CALLBACK(saveResultsFile, {
-    std::string headerFileName = "results/" + analysisName + "_header.csv";
-    std::ofstream headerFile (headerFileName, std::ios_base::app);
-    if (headerFile.is_open()) {
-      //headerFile << "lambda0, mu0, nu0, alpha, sigma2, alpha_nu, sigma_nu2, m0, b, m0_nu, b_nu" << std::endl;
-      headerFile << "lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta, alphaSigma.m0, alphaSigma.v, alphaSigma.a, alphaSigma.b, alphaSigma_gbm.m0, alphaSigma_gbm.v, alphaSigma_gbm.a, alphaSigma_gbm.b" << std::endl;
-      headerFile.close();
-    }
-    std::string resultsFileName = "results/" + analysisName + ".csv";
-    std::ofstream resultsFile (resultsFileName, std::ios_base::app);
-    if (resultsFile.is_open()) {
-      floating_t maxWeight = WEIGHTS[0];
-      for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
-      /* Use the weights to choose the subsample in a numerically stable way. */
-      floating_t probs[N]; 
-      for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
-      for (int j = 0; j < M; j++) {
-	//int k = SAMPLE(discrete, probs, N); doesn't work on GPU
-	int k = adiscrete(probs, N);
-	resultsFile << PSTATES[k].lambda_0.k << ", "
-		    << PSTATES[k].lambda_0.theta << ", "
-		    << PSTATES[k].mu_0.k << ", "
-		    << PSTATES[k].mu_0.theta << ", "
-		    << PSTATES[k].nu_0.k << ", "
-		    << PSTATES[k].nu_0.theta << ", "
-	            << PSTATES[k].alphaSigma.m0 << ", "
-		    << PSTATES[k].alphaSigma.v << ", "
-		    << PSTATES[k].alphaSigma.a << ", "
-		    << PSTATES[k].alphaSigma.b << ", "
-		    << PSTATES[k].alphaSigma_gbm.m0 << ", "
-    		    << PSTATES[k].alphaSigma_gbm.v << ", "
-		    << PSTATES[k].alphaSigma_gbm.a << ", "
-    		    << PSTATES[k].alphaSigma_gbm.b <<
-		    std::endl;
-
+CALLBACK(saveResultsFile,
+{
+  std::string resultsDir = "results/";
+  std::string factorsFileName = resultsDir + "factors.csv";
+  std::ofstream factorsFile(factorsFileName, std::ios_base::app);
+  std::string headerFileName = resultsDir + analysisName + "_header.csv";
+  std::ofstream headerFile(headerFileName, std::ios_base::app);
+  if (headerFile.is_open())
+  {
+    headerFile << "lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta, alphaSigma.m0, alphaSigma.v, alphaSigma.a, alphaSigma.b, alphaSigma_gbm.m0, alphaSigma_gbm.v, alphaSigma_gbm.a, alphaSigma_gbm.b" << std::endl;
+    headerFile.close();
+  }
+  std::string resultsFileName = resultsDir + analysisName + ".csv";
+  std::ofstream resultsFile(resultsFileName, std::ios_base::app);
+  if (resultsFile.is_open() && factorsFile.is_open())
+  {
+    floating_t maxWeight = WEIGHTS[0];
+    for (int i = 1; i < N; i++)
+      if (WEIGHTS[i] > maxWeight)
+        maxWeight = WEIGHTS[i];
+    /* Use the weights to choose the subsample in a numerically stable way. */
+    floating_t probs[N];
+    for (int i = 0; i < N; i++)
+      probs[i] = exp(WEIGHTS[i] - maxWeight);
+    for (int j = 0; j < M; j++) {
+      // int k = SAMPLE(discrete, probs, N); doesn't work on GPU
+      int k = adiscrete(probs, N);
+      resultsFile << PSTATES[k].lambda_0.k << ", "
+                  << PSTATES[k].lambda_0.theta << ", "
+                  << PSTATES[k].mu_0.k << ", "
+                  << PSTATES[k].mu_0.theta << ", "
+                  << PSTATES[k].nu_0.k << ", "
+                  << PSTATES[k].nu_0.theta << ", "
+                  << PSTATES[k].alphaSigma.m0 << ", "
+                  << PSTATES[k].alphaSigma.v << ", "
+                  << PSTATES[k].alphaSigma.a << ", "
+                  << PSTATES[k].alphaSigma.b << ", "
+                  << PSTATES[k].alphaSigma_gbm.m0 << ", "
+                  << PSTATES[k].alphaSigma_gbm.v << ", "
+                  << PSTATES[k].alphaSigma_gbm.a << ", "
+                  << PSTATES[k].alphaSigma_gbm.b << std::endl;
+      if (FACTORS) {
+        for (int factorIndex = 0; factorIndex < tree->NUM_NODES; factorIndex++) {
+          factorsFile << PSTATES[k].factors[factorIndex] << ", ";
+        }
+        factorsFile << std::endl;
       }
-      resultsFile.close();
     }
-  })
-
+    factorsFile.close();
+    resultsFile.close();
+  }
+})
 
 BBLOCK(initialization, {
     // Priors
