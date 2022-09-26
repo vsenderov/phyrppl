@@ -64,6 +64,7 @@ data['W'] /= data['W'].sum()
 
 sample_λ = sample(data, gamma, {'a': 'lambda_0.k', 'scale': 'lambda_0.theta'})
 sample_μ = sample(data, gamma, {'a': 'mu_0.k', 'scale': 'mu_0.theta'})
+sample_ε = sample_μ/sample_λ
 sample_ν = sample(data, gamma, {'a': 'nu_0.k', 'scale': 'nu_0.theta'})
 sample_log_α_gbm = sample(data, "normal_inverse_gamma_v", {'μ': 'alphaSigma_gbm.m0', 'v': 'alphaSigma_gbm.v', 'α': 'alphaSigma_gbm.a', 'β': 'alphaSigma_gbm.b'})
 sample_sigma2_gbm = sample(data, invgamma, {'a': 'alphaSigma_gbm.a', 'scale': 'alphaSigma_gbm.b'})
@@ -80,6 +81,7 @@ print("lambda_mixture_mean,", np.sum(data['W'] * data['lambda_0.k'] * data['lamb
 print("lambda_sample_median,", np.median(sample_λ))
 print("mu_mixture_mean,", np.sum(data['W'] * data['mu_0.k'] * data['mu_0.theta']))
 print("mu_sample_median,", np.median(sample_μ))
+print("epsilon_sample_median,", np.median(sample_ε))
 print("nu_mixture_mean,", np.sum(data['W'] * data['nu_0.k'] * data['nu_0.theta']))
 print("nu_sample_median,", np.median(sample_ν))
 print("gbm_log_alpha_sample_mean,", np.mean(sample_log_α_gbm))

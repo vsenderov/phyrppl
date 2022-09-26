@@ -1,17 +1,30 @@
 #!/usr/bin/env python
 
+# Usage
+# python3 pdf.py 
+#   or
+# python3 pdf.py HEADER DATA FACTORS LOGZ JSON_IN NEX_OUT
+
 import json
 import numpy as np
 import pandas as pd
+import sys, getopt
 
-
-header_file = "CombineDS_header.csv"
-data_file = "CombineDS.csv"
-# Note: factors at the end of branches!
-factors_file = "factors_end.csv"
-logZ_file = "logz.txt"
-tree_phyjson_file = "Anatinae.tre.phyjson"
-output_file = "Anatinae.nex"
+if len(sys.argv) != 7:
+    header_file = "CombineDS_header.csv"
+    data_file = "CombineDS.csv"
+    # Note: factors at the end of branches!
+    factors_file = "factors_end.csv"
+    logZ_file = "logz.txt"
+    tree_phyjson_file = "tre.phyjson"
+    output_file = "output.nex"
+else:
+    header_file = sys.argv[1]
+    data_file = sys.argv[2]
+    factors_file = sys.argv[3]
+    logZ_file = sys.argv[4]
+    tree_phyjson_file = sys.argv[5]
+    output_file = sys.argv[6]
 
 ###
 

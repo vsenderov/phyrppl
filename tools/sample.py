@@ -43,9 +43,12 @@ data['W'] = np.exp(data['logZ'] - data['logZ'].max())
 data['W'] /= data['W'].sum()
 
 r = row(data)
+l = sample(r, gamma, {'a': 'lambda_0.k', 'scale': 'lambda_0.theta'})
+m = sample(r, gamma, {'a': 'mu_0.k', 'scale': 'mu_0.theta'})
 print(json.dumps(    {
-    'lambda': sample(r, gamma, {'a': 'lambda_0.k', 'scale': 'lambda_0.theta'}),
-    'mu': sample(r, gamma, {'a': 'mu_0.k', 'scale': 'mu_0.theta'}),
+    'lambda': l,
+    'mu': m,
+    'epsilon': m/l,
     'nu': sample(r, gamma, {'a': 'nu_0.k', 'scale': 'nu_0.theta'}),
     'log_α_gbm': sample(r, "normal_inverse_gamma_v", {'μ': 'alphaSigma_gbm.m0', 'v': 'alphaSigma_gbm.v', 'α': 'alphaSigma_gbm.a', 'β': 'alphaSigma_gbm.b'}),
     'sigma2_gbm': sample(r, invgamma, {'a': 'alphaSigma_gbm.a', 'scale': 'alphaSigma_gbm.b'}),
