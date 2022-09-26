@@ -28,6 +28,7 @@
  *     __(19)__ - stochastic level (0 - none, 1 - const, 2 - turnover to lambda const)/ rare shifts
  *     __(20)__ - step size for AnaDS-GBM
  *     __(21)__ - maximum recursion depth allowed in side-branch simulations
+ *     __(22)__ - whether to dump factors
  * 
  */
 
@@ -63,6 +64,7 @@
 #define MAX_DEPTH __(21)__
 #define M 20  // Number of subsamples to draw
 #define DEBUG false
+#define FACTORS __(22)__
 
 // The GBM model is only active if the step size is smaller than the tree age.
 #define ANADS_GBM (DATA_POINTER(tree)->ages[ROOT_IDX] > DATA_CONST(stepSize))
@@ -82,6 +84,8 @@ struct progState_t {
   floating_t factors[(tree->NUM_NODES)]; // first is 1, all other 0 for now
   // TODO Technically we don't need a factor for the root (it is assumed to be 1)
   // But for now we are going to waste one posistion for easier debugging.
+
+  floating_t factorsEnd[(tree->NUM_NODES)]; // factors after the branches have been processed
 
   // Prior distributions
   gamma_t lambda_0;
@@ -276,200 +280,223 @@ struct simBranchReturn_t {
  *  - has side-effects on arguments
  *
  */
-BBLOCK_HELPER(simBranch,
-{ 		   
-  if(GUARD) {
-    if (factor > MAX_FACTOR) {
-      simBranchReturn_t ret(MAX_FACTOR, -INFINITY);
-      return ret;  
-    }
-    if (factor < MIN_FACTOR) {
-      simBranchReturn_t ret(MIN_FACTOR, -INFINITY);
-      return ret;
-    }
-  }
-
-  floating_t branchLength_My = startTime_Mya - stopTime_Mya;
-
-  // 2022-09-14 vsenderov A patch (10x Jan) working around
-  // an issue that can arise when generating an MCC tree with something like
-  // BEAST; we get negative branch lengths; simply ignore the branch.
-  if (branchLength_My <= 0)
-  {
-    simBranchReturn_t ret(factor, 0.0);
-    return ret;
-  }
-  assert(0 < branchLength_My);
-
-  floating_t cladogenetic_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
-  floating_t brownian_My = DATA_CONST(stepSize);
-  floating_t anagenetic_My =  INFINITY; // case 0
-
-  switch(ANADS) {
-  case 1:
-    anagenetic_My =   SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
-    break;
-  case 2:
-    anagenetic_My =   SAMPLE(gammaExponential, PSTATE.nu_0, factor);
-  } 
-
-  if (brownian_My < cladogenetic_My && brownian_My < anagenetic_My) { // step comes before observed speciation
-    floating_t currentTime_Mya = startTime_Mya - brownian_My; 
-    
-    if(currentTime_Mya <= stopTime_Mya) {
-      // Quickly! Redraw the factor, make a GBM step before the branch ends!
-      if (ANADS_GBM) {
-      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
-      	factor = factor * exp(f);
+BBLOCK_HELPER(
+    simBranch,
+    {
+      if (GUARD)
+      {
+        if (factor > MAX_FACTOR)
+        {
+          simBranchReturn_t ret(MAX_FACTOR, -INFINITY);
+          return ret;
+        }
+        if (factor < MIN_FACTOR)
+        {
+          simBranchReturn_t ret(MIN_FACTOR, -INFINITY);
+          return ret;
+        }
       }
-      
-      simBranchReturn_t ret(factor, 0); // case 0
-      switch (EXTINCTION) {
+
+      floating_t branchLength_My = startTime_Mya - stopTime_Mya;
+
+      // 2022-09-14 vsenderov A patch (10x Jan) working around
+      // an issue that can arise when generating an MCC tree with something like
+      // BEAST; we get negative branch lengths; simply ignore the branch.
+      if (branchLength_My <= 0)
+      {
+        simBranchReturn_t ret(factor, 0.0);
+        return ret;
+      }
+      assert(0 < branchLength_My);
+
+      floating_t cladogenetic_My = SAMPLE(gammaExponential, PSTATE.lambda_0, factor);
+      floating_t brownian_My = DATA_CONST(stepSize);
+      floating_t anagenetic_My = INFINITY; // case 0
+
+      switch (ANADS)
+      {
       case 1:
-	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
-	break;
+        anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, 1.0);
+        break;
       case 2:
-	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
-      }
-      return ret;
-    }
-
-    // Make a "normal" GBM step
-    floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, brownian_My), 0.0, BBLOCK_CALL(safeTime, brownian_My));
-
-    // Compute the accummulated non-extinction probability up to currentTime ->
-    // brownian_My here I think
-    floating_t extinctionProb = 0; // case 0
-    switch (EXTINCTION) {
-      case 1:
-	extinctionProb = gammaPoissonScore(0, brownian_My, PSTATE.mu_0, 1.0);
-	break;
-      case 2:
-	extinctionProb = gammaPoissonScore(0, brownian_My, PSTATE.mu_0, factor);
+        anagenetic_My = SAMPLE(gammaExponential, PSTATE.nu_0, factor);
       }
 
-    // Process remainder of branch by recursion
-    simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f1));
-    
-    // Now gather all weights and but DO NOT add 2 for the end of the branch
-    // there was no speciation (rotation) at currentTime_Mya, so no need to add 2!!!!
-    simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
-    return ret;
-  }
-  if (anagenetic_My < cladogenetic_My && anagenetic_My < brownian_My) { // Rare Anagenetic shift
-    floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
-    
-    if(currentTime_Mya <= stopTime_Mya) {
-      // redraw factor observed speciation
-      if (ANADS_GBM) {
-      	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, branchLength_My, 0.0, branchLength_My);
-      	factor = factor * exp(f);
+      if (brownian_My < cladogenetic_My && brownian_My < anagenetic_My)
+      { // step comes before observed speciation
+        floating_t currentTime_Mya = startTime_Mya - brownian_My;
+
+        if (currentTime_Mya <= stopTime_Mya)
+        {
+          // Quickly! Redraw the factor, make a GBM step before the branch ends!
+          if (ANADS_GBM)
+          {
+            floating_t f = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
+            factor = factor * exp(f);
+          }
+
+          simBranchReturn_t ret(factor, 0); // case 0
+          switch (EXTINCTION)
+          {
+          case 1:
+            ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
+            break;
+          case 2:
+            ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+          }
+          return ret;
+        }
+
+        // Make a "normal" GBM step
+        floating_t f1 = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, brownian_My), 0.0, BBLOCK_CALL(safeTime, brownian_My));
+
+        // Compute the accummulated non-extinction probability up to currentTime ->
+        // brownian_My here I think
+        floating_t extinctionProb = 0; // case 0
+        switch (EXTINCTION)
+        {
+        case 1:
+          extinctionProb = gammaPoissonScore(0, brownian_My, PSTATE.mu_0, 1.0);
+          break;
+        case 2:
+          extinctionProb = gammaPoissonScore(0, brownian_My, PSTATE.mu_0, factor);
+        }
+
+        // Process remainder of branch by recursion
+        simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya, factor * exp(f1));
+
+        // Now gather all weights and but DO NOT add 2 for the end of the branch
+        // there was no speciation (rotation) at currentTime_Mya, so no need to add 2!!!!
+        simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
+        return ret;
       }
-       
-      simBranchReturn_t ret(factor, 0);
-      switch (EXTINCTION) {
-      case 1:
-	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
-	break;
-      case 2:
-	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+      if (anagenetic_My < cladogenetic_My && anagenetic_My < brownian_My)
+      { // Rare Anagenetic shift
+        floating_t currentTime_Mya = startTime_Mya - anagenetic_My;
+
+        if (currentTime_Mya <= stopTime_Mya)
+        {
+          // redraw factor observed speciation
+          if (ANADS_GBM)
+          {
+            floating_t f = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, branchLength_My, 0.0, branchLength_My);
+            factor = factor * exp(f);
+          }
+
+          simBranchReturn_t ret(factor, 0);
+          switch (EXTINCTION)
+          {
+          case 1:
+            ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
+            break;
+          case 2:
+            ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+          }
+          return ret;
+        }
+
+        // GBM Step before recursion
+        if (ANADS_GBM)
+        {
+          floating_t f = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
+          factor = factor * exp(f);
+        }
+
+        // Rare shift, try alphaSigma
+        floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+
+        floating_t extinctionProb = 0;
+        switch (EXTINCTION)
+        {
+        case 1:
+          extinctionProb = gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, 1.0);
+          break;
+        case 2:
+          extinctionProb = gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, factor);
+        }
+
+        simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya, factor * exp(f1));
+
+        // Now gather all weights and add 2 for the end of the branch
+        // we are not at branch end, so no need to add 2!!!!
+        simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
+        return ret;
       }
-      return ret;
-    }
+      else
+      { // Cladogenetic or CRBD case
 
-    // GBM Step before recursion
-    if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, anagenetic_My), 0.0, BBLOCK_CALL(safeTime, anagenetic_My));
-      factor = factor * exp(f);
-    }
+        floating_t currentTime_Mya = startTime_Mya - cladogenetic_My;
 
-    // Rare shift, try alphaSigma
-    floating_t f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-  
-    floating_t extinctionProb = 0;
-    switch (EXTINCTION) {
-      case 1:
-	extinctionProb = gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, 1.0);
-	break;
-      case 2:
-	extinctionProb = gammaPoissonScore(0, anagenetic_My, PSTATE.mu_0, factor);
+        if (currentTime_Mya <= stopTime_Mya)
+        {
+          // Quickly! Redraw the factor, make a GBM step before the branch ends!
+          if (ANADS_GBM)
+          {
+            floating_t f = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
+            factor = factor * exp(f);
+          }
+
+          simBranchReturn_t ret(factor, 0); // case 0
+          switch (EXTINCTION)
+          {
+          case 1:
+            ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
+            break;
+          case 2:
+            ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
+          }
+          return ret;
+        }
+
+        // hidden speciation event CRBD case
+        floating_t f1 = 0.0;
+        floating_t f2 = 0.0;
+
+        // There is a hidden speciation now, do a GBM Step!
+        if (ANADS_GBM)
+        {
+          floating_t f = SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, cladogenetic_My), 0.0, BBLOCK_CALL(safeTime, cladogenetic_My));
+          factor = factor * exp(f);
+        }
+
+        if (CLADS)
+        {
+          // TODO count shifts, also in AnaDS case
+          f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+          f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
+          // cannot swap here
+        }
+
+        bool sideUndetected = BBLOCK_CALL(goesUndetected, currentTime_Mya, factor * exp(f1), 0);
+        if (!sideUndetected)
+        {
+          simBranchReturn_t ret(factor, -INFINITY);
+          return ret;
+        }
+
+        // Handle remainder of branch
+        simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya, factor * exp(f2));
+
+        // Extinction prob until the hidden speciation event
+        floating_t extinctionProb = 0; // case 0
+        switch (EXTINCTION)
+        {
+        case 1:
+          extinctionProb = gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, 1.0);
+          break;
+        case 2:
+          extinctionProb = gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, factor);
+        }
+
+        // Add log(2.0) here for the location
+        simBranchReturn_t ret(ret2.factorEnd, ret2.prob + log(2.0) + extinctionProb);
+        return ret;
       }
-    
-    simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f1));
-    
-    // Now gather all weights and add 2 for the end of the branch
-    // we are not at branch end, so no need to add 2!!!!
-    simBranchReturn_t ret(ret2.factorEnd, ret2.prob + extinctionProb);
-    return ret;
-  }
-  else { //Cladogenetic or CRBD case
-  
-    floating_t currentTime_Mya = startTime_Mya - cladogenetic_My;
-    
-    if(currentTime_Mya <= stopTime_Mya) {
-      // Quickly! Redraw the factor, make a GBM step before the branch ends!
-      if (ANADS_GBM) {
-	floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, branchLength_My), 0.0, BBLOCK_CALL(safeTime, branchLength_My));
-	factor = factor * exp(f);
-      }
-      
-      simBranchReturn_t ret(factor, 0); // case 0
-      switch (EXTINCTION) {
-      case 1:
-	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, 1.0);
-	break;
-      case 2:
-	ret.prob = gammaPoissonScore(0, branchLength_My, PSTATE.mu_0, factor);
-      }
-      return ret;
-    }
-    
-    // hidden speciation event CRBD case
-    floating_t f1 = 0.0;
-    floating_t f2 = 0.0;
-
-    // There is a hidden speciation now, do a GBM Step!
-    if (ANADS_GBM) {
-      floating_t f =  SAMPLE(linearNormalInverseGammaNormal, PSTATE.alphaSigma_gbm, BBLOCK_CALL(safeTime, cladogenetic_My), 0.0, BBLOCK_CALL(safeTime, cladogenetic_My));
-      factor = factor * exp(f);
-    }
-    
-    if (CLADS) {
-      // TODO count shifts, also in AnaDS case
-      f1 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-      f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
-      // cannot swap here
-    }
-    
-    bool sideUndetected = BBLOCK_CALL(goesUndetected, currentTime_Mya, factor*exp(f1), 0);
-    if(!sideUndetected) {
-      simBranchReturn_t ret(factor, -INFINITY);
-      return ret;
-    }
-
-    // Handle remainder of branch
-    simBranchReturn_t ret2 = BBLOCK_CALL(simBranch, currentTime_Mya, stopTime_Mya,  factor*exp(f2));
-
-    // Extinction prob until the hidden speciation event
-    floating_t extinctionProb = 0; // case 0
-    switch (EXTINCTION) {
-    case 1:
-      extinctionProb = gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, 1.0);
-      break;
-    case 2:
-      extinctionProb = gammaPoissonScore(0, cladogenetic_My, PSTATE.mu_0, factor);
-    }
-
-    // Add log(2.0) here for the location
-    simBranchReturn_t ret(ret2.factorEnd, ret2.prob + log(2.0) + extinctionProb);
-    return ret;
-  }
-},
-	      simBranchReturn_t,
-	      floating_t startTime_Mya,
-	      floating_t stopTime_Mya,
-	      floating_t factor);
-
+    },
+    simBranchReturn_t,
+    floating_t startTime_Mya,
+    floating_t stopTime_Mya,
+    floating_t factor);
 
 // BBLOCK(sampleFinalLambda, {
 //     PSTATE.lambda0 = SAMPLE(gamma, PSTATE.lambda_0.k, PSTATE.lambda_0.theta);
@@ -513,6 +540,7 @@ BBLOCK(conditionOnDetection, {
  */
 BBLOCK(simTree,
 {
+  assert(FACTORS < 2);
   tree_t* treeP = DATA_POINTER(tree);
   treeIdx_t treeIdx = PSTATE.treeIdx; // During first invocation it goes left from root
   int indexParent = treeP->idxParent[treeIdx];
@@ -540,6 +568,7 @@ BBLOCK(simTree,
 		); 
   
   floating_t factorEnd = ret.factorEnd;
+  PSTATE.factorsEnd[treeIdx] = factorEnd;
   floating_t accummulatedProbability = ret.prob;
      
   bool interiorNode = treeP->idxLeft[treeIdx] != -1 || treeP->idxRight[treeIdx] != -1;
@@ -558,11 +587,11 @@ BBLOCK(simTree,
       f2 = SAMPLE(normalInverseGammaNormal, PSTATE.alphaSigma);
     }
 
-    floating_t leftFactorEnd = factorEnd*exp(f1);
-    floating_t rightFactorEnd = factorEnd*exp(f2);
+    floating_t leftFactorBegin = factorEnd*exp(f1);
+    floating_t rightFactorBegin = factorEnd*exp(f2);
     
-    PSTATE.factors[treeP->idxLeft[treeIdx]] = leftFactorEnd;
-    PSTATE.factors[treeP->idxRight[treeIdx]] = rightFactorEnd;
+    PSTATE.factors[treeP->idxLeft[treeIdx]] = leftFactorBegin;
+    PSTATE.factors[treeP->idxRight[treeIdx]] = rightFactorBegin;
   } 
 })
 
@@ -621,48 +650,64 @@ int adiscrete(const floating_t* ps, const int n) {
   }    
   return idx;
 }
- 
 
-CALLBACK(saveResultsFile, {
-    std::string headerFileName = "results/" + analysisName + "_header.csv";
-    std::ofstream headerFile (headerFileName, std::ios_base::app);
-    if (headerFile.is_open()) {
-      //headerFile << "lambda0, mu0, nu0, alpha, sigma2, alpha_nu, sigma_nu2, m0, b, m0_nu, b_nu" << std::endl;
-      headerFile << "lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta, alphaSigma.m0, alphaSigma.v, alphaSigma.a, alphaSigma.b, alphaSigma_gbm.m0, alphaSigma_gbm.v, alphaSigma_gbm.a, alphaSigma_gbm.b" << std::endl;
-      headerFile.close();
-    }
-    std::string resultsFileName = "results/" + analysisName + ".csv";
-    std::ofstream resultsFile (resultsFileName, std::ios_base::app);
-    if (resultsFile.is_open()) {
-      floating_t maxWeight = WEIGHTS[0];
-      for (int i = 1; i < N; i++) if (WEIGHTS[i] > maxWeight) maxWeight = WEIGHTS[i];
-      /* Use the weights to choose the subsample in a numerically stable way. */
-      floating_t probs[N]; 
-      for (int i = 0; i < N; i++) probs[i] = exp(WEIGHTS[i] - maxWeight) ;
-      for (int j = 0; j < M; j++) {
-	//int k = SAMPLE(discrete, probs, N); doesn't work on GPU
-	int k = adiscrete(probs, N);
-	resultsFile << PSTATES[k].lambda_0.k << ", "
-		    << PSTATES[k].lambda_0.theta << ", "
-		    << PSTATES[k].mu_0.k << ", "
-		    << PSTATES[k].mu_0.theta << ", "
-		    << PSTATES[k].nu_0.k << ", "
-		    << PSTATES[k].nu_0.theta << ", "
-	            << PSTATES[k].alphaSigma.m0 << ", "
-		    << PSTATES[k].alphaSigma.v << ", "
-		    << PSTATES[k].alphaSigma.a << ", "
-		    << PSTATES[k].alphaSigma.b << ", "
-		    << PSTATES[k].alphaSigma_gbm.m0 << ", "
-    		    << PSTATES[k].alphaSigma_gbm.v << ", "
-		    << PSTATES[k].alphaSigma_gbm.a << ", "
-    		    << PSTATES[k].alphaSigma_gbm.b <<
-		    std::endl;
-
+CALLBACK(saveResultsFile,
+{
+  std::string resultsDir = "results/";
+  std::string factorsFileName = resultsDir + "factors.csv";
+  std::string factorsEndFileName = resultsDir + "factors_end.csv";
+  std::ofstream factorsFile(factorsFileName, std::ios_base::app);
+  std::ofstream factorsEndFile(factorsEndFileName, std::ios_base::app);
+  std::string headerFileName = resultsDir + analysisName + "_header.csv";
+  std::ofstream headerFile(headerFileName, std::ios_base::app);
+  if (headerFile.is_open())
+  {
+    headerFile << "lambda_0.k, lambda_0.theta, mu_0.k, mu_0.theta, nu_0.k, nu_0.theta, alphaSigma.m0, alphaSigma.v, alphaSigma.a, alphaSigma.b, alphaSigma_gbm.m0, alphaSigma_gbm.v, alphaSigma_gbm.a, alphaSigma_gbm.b" << std::endl;
+    headerFile.close();
+  }
+  std::string resultsFileName = resultsDir + analysisName + ".csv";
+  std::ofstream resultsFile(resultsFileName, std::ios_base::app);
+  if (resultsFile.is_open() && factorsFile.is_open() && factorsEndFile.is_open())
+  {
+    floating_t maxWeight = WEIGHTS[0];
+    for (int i = 1; i < N; i++)
+      if (WEIGHTS[i] > maxWeight)
+        maxWeight = WEIGHTS[i];
+    /* Use the weights to choose the subsample in a numerically stable way. */
+    floating_t probs[N];
+    for (int i = 0; i < N; i++)
+      probs[i] = exp(WEIGHTS[i] - maxWeight);
+    for (int j = 0; j < M; j++) {
+      // int k = SAMPLE(discrete, probs, N); doesn't work on GPU
+      int k = adiscrete(probs, N);
+      resultsFile << PSTATES[k].lambda_0.k << ", "
+                  << PSTATES[k].lambda_0.theta << ", "
+                  << PSTATES[k].mu_0.k << ", "
+                  << PSTATES[k].mu_0.theta << ", "
+                  << PSTATES[k].nu_0.k << ", "
+                  << PSTATES[k].nu_0.theta << ", "
+                  << PSTATES[k].alphaSigma.m0 << ", "
+                  << PSTATES[k].alphaSigma.v << ", "
+                  << PSTATES[k].alphaSigma.a << ", "
+                  << PSTATES[k].alphaSigma.b << ", "
+                  << PSTATES[k].alphaSigma_gbm.m0 << ", "
+                  << PSTATES[k].alphaSigma_gbm.v << ", "
+                  << PSTATES[k].alphaSigma_gbm.a << ", "
+                  << PSTATES[k].alphaSigma_gbm.b << std::endl;
+      if (FACTORS) {
+        for (int factorIndex = 0; factorIndex < tree->NUM_NODES - 1; factorIndex++) {
+          factorsFile << PSTATES[k].factors[factorIndex] << ", ";
+          factorsEndFile << PSTATES[k].factorsEnd[factorIndex] << ", ";
+        }
+        factorsFile << PSTATES[k].factors[tree->NUM_NODES - 1] << std::endl;
+        factorsEndFile << PSTATES[k].factorsEnd[tree->NUM_NODES - 1] << std::endl;
       }
-      resultsFile.close();
     }
-  })
-
+    factorsFile.close();
+    factorsEndFile.close();
+    resultsFile.close();
+  }
+})
 
 BBLOCK(initialization, {
     // Priors

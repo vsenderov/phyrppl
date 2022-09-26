@@ -41,11 +41,14 @@ cp tools/treesim-"${args[$(($#-1))]}".js $dir/"${args[$(($#-1))]}".js
 echo "${args[$(($#-1))]}" > $dir/model.txt
 cp tools/pdf.py $dir/
 cp tools/sample.py $dir/
+cp tools/figtree.py $dir/
+cp json-data/${args[1]}.tre.phyjson $dir/
 mv logz.txt $dir/
 mv results/* $dir/
 cp $dir/logz.txt $dir/logz.uncleaned
 (cd $dir/ ; sed -i '/Weight Sum is NaN, terminating.../d' logz.txt)
 (cd $dir/ ; python3 pdf.py > estimates.csv)
+(cd $dir/ ; python3 figtree.py "${args[0]}_header.csv" "${args[0]}.csv" "factors_end.csv" "logz.txt" "${args[1]}.tre.phyjson" "output.nex")
 #mv log_norm_const.txt $dir/
 
 rm $dir.out

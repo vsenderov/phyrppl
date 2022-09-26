@@ -2,6 +2,15 @@
 
 ## Changelog
 
+### v0.7.3
+New features:
+- We support an additional argument whether or not to print the factors
+along the tree.
+- figtree.py post-processing script to color the tree and modifications to
+runppl.sh to support that automatically.
+Bugfix:
+- correct rotation of bird trees.
+
 ### v0.7.2
 Included the bird supetree as a possible dataset
 
