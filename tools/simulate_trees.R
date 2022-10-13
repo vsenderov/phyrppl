@@ -57,7 +57,15 @@ simtree = function(model_dir, tree_age, rho) {
   setwd(model_dir)
   cmd = "node"
   script = list.files(pattern = "*.js")
+  if (length(script) == 0) {
+    warning("Could not find simulation JS file. Retrying...")
+    Sys.sleep(2)
+    setwd(a)
+    return(simtree(model_dir, tree_age, rho))
+  }
   args = c(script, "--stack-size=1024", ".", tree_age, rho)
+  cat(cmd)
+  cat(args)
   r = system2(command = cmd, args = args, stdout = TRUE)
   setwd(a)
   return(r)
@@ -75,17 +83,20 @@ simtree = function(model_dir, tree_age, rho) {
 #' @examples
 #' simtree_df("Anatinae/CombineDS_Anatinae_0.87_1.0_1.0_1.0_0.5_1.0_1.0_0_1.0_3.0_0.5_0_1.0_3.0_0.1_false_0_0_0.05_500_100000_100_28_1_anadsGBM0_/", 5, 0.5)
 #' 
-simtree_df = function(model_dir, tree_age, rho) {
+simtree_df = function(model_dir, tree_age, rho, minsize = 2) {
   simresult = simtree(model_dir, tree_age, rho)
   modelname = readLines(con = file.path(model_dir, "model.txt"))
   length = length(simresult)
   tr = read.newick(text = simresult[length])
   cat(".")
   nodes = tr$Nnode
+  if (nodes < minsize) {
+    return(simtree_df(model_dir, tree_age, rho, minsize))
+  }
   cat(".")
   gammaval = gammatest(ltt(tr))$gamma # the gamma stat value for each tree in the experiment
   cat(".")
-  if (tr$Nnode > 2) { 
+  if (tr$Nnode > 2 && tr$Nnode < 5000) { 
       tree = collapse.singles(tr)
       aptree = as.treeshape(tr)
       colval = (colless(aptree))
@@ -117,17 +128,30 @@ colval_from_file = function(original) {
 } 
 
 
-plotsimtree = function(model_dir, tree_age, rho, ...) {
+plotsimtree = function(model_dir, tree_age, rho, title, N = 50, ...) {
   simresult = simtree(model_dir, tree_age, rho)  
   length = length(simresult)
   tr = read.newick(text = simresult[length])
+  while (tr$Nnode < N) {
+    simresult = simtree(model_dir, tree_age, rho)  
+    length = length(simresult)
+    tr = read.newick(text = simresult[length])
+  }
+  cat("Bingo!")
+  gammaval = gammatest(ltt(tr, plot=FALSE))$gamma 
+  if (tr$Nnode > 2 && tr$Nnode < 5000) { 
+    tree = collapse.singles(tr)
+    aptree = as.treeshape(tr)
+    colval = (colless(aptree))
+  } else colval = NA
   plot.phylo(tr, ...)
-  title("Simulated tree")
+  mtext(paste("Γ=", format(round(gammaval, 2), nsmall = 2), " C=", colval), side = 1)
+  title(paste("Simulation", title))
 }
 
-simulate_trees = function(model_dir, tree_age, rho, N) {
+simulate_trees = function(model_dir, tree_age, rho, N, ...) {
   index = seq(from = 1, to = N, by = 1)
   do.call(rbind, lapply(index, function(i) {
-    simtree_df(model_dir, tree_age, rho)
+    simtree_df(model_dir, tree_age, rho, ...)
   }))
 }

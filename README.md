@@ -2,6 +2,9 @@
 
 ## Changelog
 
+### v0.7.6
+  - merged plotting function from the poster prep
+
 ### v0.7.5
   - rootppl now renamed to rppl
   - cluster stuff in run_experiments.sh fine-tuned

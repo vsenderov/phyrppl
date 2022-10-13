@@ -29,7 +29,8 @@ metadata_from_dir = function(experiment_dir, fields = c("Model",
                                                         "depth",
                                                         "N",
                                                         "sweeps")) {
-  experiment_files = list.files(experiment_dir)
+  experiment_files = list.files(experiment_dir, pattern = "*")
+  #experiment_files = experiment_files[experiment_files != "special"]
   experiment_metadata = as.data.frame(do.call(rbind, strsplit(experiment_files, "_")))
   names(experiment_metadata) = fields
   return(experiment_metadata)
@@ -90,7 +91,8 @@ plot_logz_directory_box = function(experiment_dir, xvar = "step", plotf = "plot.
 ################################################################################
 plot_logz_directory_violin = function(experiment_dir, xvar = "step", plotf = "plot.svg", title)
 {
-  experiment_files = list.files(experiment_dir)
+  experiment_files = list.files(experiment_dir, pattern = "*")
+  
   models = sapply(experiment_files, function(ef) {
     readLines(file.path(experiment_dir, ef, "model.txt"))
   })
@@ -111,9 +113,15 @@ plot_logz_directory_violin = function(experiment_dir, xvar = "step", plotf = "pl
   edata$depth = as.factor(as.numeric(edata$depth))
   edata$nsteps = as.factor(round(1/edata$step))
   
-  ggplot(data = edata, mapping = aes_string(x = xvar, y = "logz")) + 
+  #logz_crbd = mean(as.numeric(readLines(con = file.path(experiment_dir, ".special", "crbd_logz.txt"))))
+  #logz_tdbd = mean(as.numeric(readLines(con = file.path(experiment_dir, ".special", "tdbd_logz.txt"))))
+  #cat(logz_tdbd)
+  ggplot(data = edata, mapping = aes_string(x = xvar, y = "logz", col = xvar), show.legend = FALSE) + #geom_hline(yintercept = logz_crbd, linetype = "dotted") + scale_x_discrete() + ylab(TeX("$\\log Z$")) +
+    #geom_hline(yintercept = logz_tdbd, linetype = "dashed") +
     geom_violin()+ geom_jitter(alpha = 0.1, width = 0.15) +
-    ggtitle(title) + geom_smooth(method="gam", aes(x = as.numeric(depth), y=logz), formula = y ~ s(x, bs = "cs", k=K)) 
+    ggtitle(title) + 
+    geom_smooth(method="gam", aes(x = as.numeric(depth), y=logz), formula = y ~ s(x, bs = "cs", k=K)) +
+    theme_light() + ggplot2::xlab("") + theme(legend.position = "none", panel.grid.minor = element_blank())
 }
 ################################################################################
 
