@@ -2,6 +2,13 @@
 
 ## Changelog
 
+### v0.7.5
+  - rootppl now renamed to rppl
+  - cluster stuff in run_experiments.sh fine-tuned
+
+### v0.7.4
+- bugfixes in the trees
+
 ### v0.7.3
 New features:
 - We support an additional argument whether or not to print the factors

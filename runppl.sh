@@ -27,7 +27,7 @@ do
 done
 
 #rootppl clean
-rootppl -o $dir.out results/$dir.cu $RPPL_FLAGS
+rppl -o $dir.out results/$dir.cu $RPPL_FLAGS
 #                        NSWEEPS
 for i in `seq "${args[$(($#-4))]}"`; do
 #                                NPARTS               NOMPTHREADS         CUDAPARTPTHR
