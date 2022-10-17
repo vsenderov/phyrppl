@@ -44,12 +44,16 @@ root = tree['trees'][0]['root']
 taxa = {t['id']: t['name'] for t in tree['taxa']}
 
 lambda0 = data['W'] * data['lambda_0.k'] * data['lambda_0.theta']
+mu0 = data['W'] * data['mu_0.k'] * data['mu_0.theta']
 
 def process(node, idx=0):
     if idx > 0:
         node['lambda'] = np.sum(lambda0 * factors[idx])
+        node['mu'] = np.sum(mu0 * factors[idx])
     else:
         node['lambda'] = np.sum(lambda0)
+        node['mu'] = np.sum(mu0)
+    node['div'] = node['lambda'] - node['mu']
     idx += 1
     if 'children' in node:
         for child in node['children']:
@@ -66,7 +70,7 @@ def newick(node):
         res += f"'{taxa[node['taxon']]}'"
     if node['branch_length'] >= 0.0:
         res += f":{node['branch_length']}"
-    res += f"[&Lambda={node['lambda']}]"
+    res += f"[&Lambda={node['lambda']},Mu={node['mu']},Div={node['div']}]"
     return res
 
 with open(output_file, "w") as output:
@@ -81,7 +85,7 @@ end;
 begin figtree;
     set appearance.backgroundColorAttribute="Default";
     set appearance.backgroundColour=#ffffff;
-    set appearance.branchColorAttribute="Lambda";
+    set appearance.branchColorAttribute="Div";
     set appearance.branchColorGradient=true;
     set appearance.branchLineWidth=2.0;
     set appearance.branchMinLineWidth=0.0;
