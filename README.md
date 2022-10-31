@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.7.7
+  - graph the net diversification rate
+  - convert NaN's to -Infinity in the model
+
 ### v0.7.6
   - merged plotting function from the poster prep
 
