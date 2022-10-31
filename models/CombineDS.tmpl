@@ -529,7 +529,9 @@ BBLOCK(conditionOnDetection, {
         if(! undetected)
             numDetected++;
     }
-    WEIGHT(-2.0 * log(numDetected / static_cast<floating_t>(numSamples)));
+    floating_t tmpW = -2.0 * log(numDetected / static_cast<floating_t>(numSamples));
+    tmpW = isnan(tmpW) ? -INFINITY : tmpW;
+    WEIGHT(tmpW);
     NEXT = NULL;//sampleFinalLambda; // this was a probabilistic simulation, so resampling is needed
     //BBLOCK_CALL(NEXT, NULL);
 })
@@ -574,7 +576,9 @@ BBLOCK(simTree,
   bool interiorNode = treeP->idxLeft[treeIdx] != -1 || treeP->idxRight[treeIdx] != -1;
   floating_t lnTerminalProb = interiorNode ? gammaExponentialScore(0, PSTATE.lambda_0, factorEnd) : log(DATA_CONST(rho));
   
-  WEIGHT(accummulatedProbability + lnTerminalProb);
+  floating_t tmpW = accummulatedProbability + lnTerminalProb;
+  tmpW = isnan(tmpW) ? -INFINITY : tmpW;
+  WEIGHT(tmpW);
 
   // Split simulation
   if(interiorNode) {
@@ -608,7 +612,10 @@ BBLOCK(simCombineDS,
   // Correction factor
   int numLeaves = countLeaves(treeP->idxLeft, treeP->idxRight, treeP->NUM_NODES);
   floating_t corrFactor = (numLeaves - 1) * log(2.0) - lnFactorial(numLeaves);
-  WEIGHT(corrFactor);
+  
+  floating_t tmpW = corrFactor;
+  tmpW = isnan(tmpW) ? -INFINITY : tmpW;
+  WEIGHT(tmpW);
 
   // CRBD case
   floating_t f1 = 0.0;
