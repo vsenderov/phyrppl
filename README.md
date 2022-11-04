@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.7.8
+  - tooling
+  - bird filenames
+
 ### v0.7.7
   - graph the net diversification rate
   - convert NaN's to -Infinity in the model
