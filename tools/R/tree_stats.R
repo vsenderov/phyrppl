@@ -43,3 +43,41 @@ compute_gain = function(experiment_dir, base = "crbd", rest = "tdbd") {
   names(return_val) = paste(base, rest, names(return_val), sep = "_")
   return(return_val)
 }
+
+get_lambda0 = function(dir, pattern) {
+  a = list.files(dir, pattern = pattern)
+  d = read.csv(file = file.path(dir, a, "estimates.csv"), header = TRUE)
+  d$Value[1]
+}
+
+get_mu0 = function(dir, pattern) {
+  a = list.files(dir, pattern = pattern)
+  d = read.csv(file = file.path(dir, a, "estimates.csv"), header = TRUE)
+  d$Value[3]
+}
+
+get_loga = function(dir, pattern) {
+  a = list.files(dir, pattern = pattern)
+  d = read.csv(file = file.path(dir, a, "estimates.csv"), header = TRUE)
+  d$Value[13]
+}
+
+get_loga_gbm = function(dir, pattern) {
+  a = list.files(dir, pattern = pattern)
+  d = read.csv(file = file.path(dir, a, "estimates.csv"), header = TRUE)
+  d$Value[9]
+}
+
+get_sigma2 = function(dir, pattern) {
+  a = list.files(dir, pattern = pattern)
+  d = read.csv(file = file.path(dir, a, "estimates.csv"), header = TRUE)
+  d$Value[15]
+}
+
+get_sigma2_gbm = function(dir, pattern) {
+  a = list.files(dir, pattern = pattern)
+  d = read.csv(file = file.path(dir, a, "estimates.csv"), header = TRUE)
+  d$Value[11]
+}
+
+

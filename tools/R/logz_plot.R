@@ -88,10 +88,11 @@ plot_logz_directory_box = function(experiment_dir, xvar = "step", plotf = "plot.
     #geom_violin()+ geom_jitter(alpha = 0.1, width = 0.15) +
     ggtitle(title)
 }
+
 ################################################################################
 plot_logz_directory_violin = function(experiment_dir, xvar = "step", plotf = "plot.svg", title)
 {
-  experiment_files = list.files(experiment_dir, pattern = "*")
+  experiment_files = list.files(experiment_dir, pattern = "*", all.files = TRUE)
   
   models = sapply(experiment_files, function(ef) {
     readLines(file.path(experiment_dir, ef, "model.txt"))
@@ -124,6 +125,37 @@ plot_logz_directory_violin = function(experiment_dir, xvar = "step", plotf = "pl
     theme_light() + ggplot2::xlab("") + theme(legend.position = "none", panel.grid.minor = element_blank())
 }
 ################################################################################
+
+
+
+#**
+#  Simple version that ignores the metadata
+#*#
+plot_logz_directory_violin2 = function(experiment_dir, xvar = "model", plotf = "plot.svg", title)
+{
+  experiment_files = setdiff(list.files(experiment_dir, pattern = "*", all.files = TRUE), c(".", ".."))
+  
+  models = sapply(experiment_files, function(ef) {
+    readLines(file.path(experiment_dir, ef, "model.txt"))
+  })
+  
+  extract_logz = function(experiment_nr) {
+    logz_file = paste0(experiment_dir, "//", experiment_files[experiment_nr], "//logz.txt")
+    logz = as.numeric(readLines(logz_file))
+    data.frame(epxeriment_nr = as.factor(rep(experiment_nr, length(logz))), logz = logz, model = models[experiment_nr])
+  }
+  
+  data = do.call(rbind, lapply(1:length(experiment_files), extract_logz))
+
+  p = ggplot(data = data, mapping = aes_string(x = xvar, y = "logz", col = xvar), show.legend = FALSE) + #geom_hline(yintercept = logz_crbd, linetype = "dotted") + scale_x_discrete() + ylab(TeX("$\\log Z$")) +
+    #geom_hline(yintercept = logz_tdbd, linetype = "dashed") +
+    geom_violin()+ geom_jitter(alpha = 0.1, width = 0.15) +
+    ggtitle(title) + 
+    theme_light() + ggplot2::xlab("") + theme(legend.position = "none", panel.grid.minor = element_blank())
+  return(p)
+}
+################################################################################
+
 
 
 

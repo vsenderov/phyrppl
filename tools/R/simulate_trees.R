@@ -55,18 +55,20 @@ zero_trees = function(trees, pattern = "^No") {
 simtree = function(model_dir, tree_age, rho) {
   a = getwd()
   setwd(model_dir)
-  cmd = "node"
-  script = list.files(pattern = "*.js")
+  
+  script = list.files(pattern = "*.js$")
   if (length(script) == 0) {
     warning("Could not find simulation JS file. Retrying...")
     Sys.sleep(2)
     setwd(a)
     return(simtree(model_dir, tree_age, rho))
   }
-  args = c(script, "--stack-size=1024", ".", tree_age, rho)
+  args = paste(script, "--stack-size=1024", ".", tree_age, rho, sep = " ")
+  
+  cmd = paste0("~/.local/bin/node ", args)
   cat(cmd)
-  cat(args)
-  r = system2(command = cmd, args = args, stdout = TRUE)
+  #r = system2(command = cmd, args = args, stdout = TRUE)
+  r = system(command = cmd, ignore.stdout = FALSE, intern = TRUE)
   setwd(a)
   return(r)
 }
