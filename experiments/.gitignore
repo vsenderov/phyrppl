@@ -2,3 +2,5 @@
 *
 # Except this file
 !.gitignore
+!do_ppc.R
+!*.sh
